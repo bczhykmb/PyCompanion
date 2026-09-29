@@ -12,8 +12,15 @@ for (const name of ['/app.js', '/app.css']) {
   const version = createHash('sha256').update(assets[name].content).digest('hex').slice(0,12);
   assets['/index.html'].content = assets['/index.html'].content.replace(name + '"', name + '?v=' + version + '"');
 }
-await fs.mkdir('dist/server', { recursive: true });
-await build({ entryPoints: ['worker.mjs'], outfile: 'dist/server/index.js', bundle: true, minify: true, format: 'esm', target: 'es2022', platform: 'browser', define: { ASSET_MAP: JSON.stringify(assets) } });
-await fs.mkdir('dist/.openai', { recursive: true });
-await fs.copyFile('.openai/hosting.json', 'dist/.openai/hosting.json');
+if (process.argv.includes('--vercel')) {
+  await fs.mkdir('dist/vercel', { recursive: true });
+  for (const [name, asset] of Object.entries(assets)) {
+    await fs.writeFile('dist/vercel' + name, asset.encoding === 'base64' ? Buffer.from(asset.content, 'base64') : asset.content);
+  }
+} else {
+  await fs.mkdir('dist/server', { recursive: true });
+  await build({ entryPoints: ['worker.mjs'], outfile: 'dist/server/index.js', bundle: true, minify: true, format: 'esm', target: 'es2022', platform: 'browser', define: { ASSET_MAP: JSON.stringify(assets) } });
+  await fs.mkdir('dist/.openai', { recursive: true });
+  await fs.copyFile('.openai/hosting.json', 'dist/.openai/hosting.json');
+}
 console.log('Classroom web build complete.');

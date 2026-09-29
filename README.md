@@ -1,5 +1,7 @@
 # EduLab 机房轻量版
 
+Vercel 部署请阅读 [VERCEL.md](./VERCEL.md)。线上使用静态页面与 API 函数，不能直接依赖本机的密码文件或 SQLite 文件；未配置云数据库时会显示明确提示。
+
 来自 https://github.com/PrideWood/edulab 的独立轻量改造入口。上游 Next.js、Coze 和 PostgreSQL 版本保留在父目录，不覆盖原平台。
 
 学生使用网页及教师分发的个人学习码进入。组别由教师指定并在服务端固定，不表示已经决定研究的随机分组办法。不收集姓名、学号或专业；身份对应表由教师在平台外管理。
