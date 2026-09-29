@@ -1,0 +1,34 @@
+import { chromium } from 'file:///C:/Users/Huo%20Hengyuan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright/index.mjs';
+import fs from 'node:fs/promises';
+import assert from 'node:assert/strict';
+const password = (await fs.readFile('.env.local','utf8')).match(/^ADMIN_PASSWORD=(.+)$/m)[1];
+const browser = await chromium.launch({ headless:true, executablePath:'C:/Program Files/Google/Chrome/Application/chrome.exe' });
+const context = await browser.newContext({ viewport:{width:1440,height:1000},acceptDownloads:true });
+const page = await context.newPage(); const errors=[]; page.on('pageerror', e => errors.push(e.message));
+const shots = 'D:/hhy/agent-framework/tmp/edulab-preview'; await fs.mkdir(shots,{recursive:true});
+try {
+  await page.goto('http://127.0.0.1:4191/manage'); await page.locator('#credential').fill(password); await page.locator('#login-button').click();
+  await page.locator('#group').waitFor(); await page.locator('#group').selectOption('D');
+  await page.locator('#create-button').click(); await page.locator('.generated tbody tr').waitFor();
+  const code = await page.locator('.generated tbody tr td').nth(2).textContent();
+  await page.screenshot({path:shots+'/teacher.png',fullPage:true});
+  await page.locator('#logout').click(); await page.goto('http://127.0.0.1:4191/');
+  await page.screenshot({path:shots+'/entry.png',fullPage:true});
+  await page.locator('#credential').fill(code); await page.locator('#login-button').click();
+  await page.locator('#code').waitFor(); await page.locator('[data-task=variables]').click();
+  await page.locator('#code').fill('count = 12\nmass = 2.5\nprint(count * mass)');
+  await page.locator('#question').fill('变量有什么作用？'); await page.locator('#attach').check();
+  await page.locator('#send').click(); await page.locator('.turn .answer').filter({hasText:'演示模式'}).waitFor();
+  assert.equal(await page.locator('.turn').count(),1);
+  await page.screenshot({path:shots+'/student-desktop.png',fullPage:true});
+  page.on('dialog', dialog => dialog.accept()); await page.reload();
+  await page.locator('.turn .answer').waitFor(); assert.equal(await page.locator('.turn').count(),1);
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth),false);
+  await page.setViewportSize({width:390,height:844}); await page.screenshot({path:shots+'/student-mobile-chat.png',fullPage:true});
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth),false);
+  await page.locator('#show-code').click(); await page.screenshot({path:shots+'/student-mobile-code.png',fullPage:true});
+  assert.equal(await page.locator('#code').isVisible(),true);
+  await page.locator('#logout').click(); await page.locator('#credential').waitFor();
+  assert.deepEqual(errors,[]);
+  console.log(JSON.stringify({ok:true,checks:['teacher-login','create-personal-code','student-login','code-submission','demo-reply','refresh-persistence','desktop-mobile-layout','logout'],screenshots:shots}));
+} finally { await context.close(); await browser.close(); }

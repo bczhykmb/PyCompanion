@@ -1,0 +1,10 @@
+import { build } from 'esbuild';
+import fs from 'node:fs/promises';
+const client = await build({ entryPoints: ['public/app.mjs'], bundle: true, write: false, minify: true, format: 'esm', target: 'es2022', platform: 'browser' });
+const assets = { '/app.js': { content: client.outputFiles[0].text, type: 'text/javascript;charset=utf-8' } };
+for (const [name, type] of [['index.html','text/html'],['app.css','text/css'],['favicon.svg','image/svg+xml']]) assets['/' + name] = { content: await fs.readFile('public/' + name, 'utf8'), type: type + ';charset=utf-8' };
+await fs.mkdir('dist/server', { recursive: true });
+await build({ entryPoints: ['worker.mjs'], outfile: 'dist/server/index.js', bundle: true, minify: true, format: 'esm', target: 'es2022', platform: 'browser', define: { ASSET_MAP: JSON.stringify(assets) } });
+await fs.mkdir('dist/.openai', { recursive: true });
+await fs.copyFile('.openai/hosting.json', 'dist/.openai/hosting.json');
+console.log('Classroom web build complete.');
