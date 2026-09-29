@@ -1,10 +1,11 @@
-import { createIcons, BookOpen, MessageSquare, Code2, Download, LogOut, Send, Copy, RefreshCw, Users, ShieldCheck, Plus, FileCode2 } from 'lucide';
+import { createIcons, BookOpen, MessageSquare, Code2, Download, LogOut, Send, Copy, RefreshCw, Users, ShieldCheck, Plus, FileCode2, Play, Square, Trash2 } from 'lucide';
 import { TASKS, GROUPS } from '../lib/experiment.mjs';
-const icons = { BookOpen, MessageSquare, Code2, Download, LogOut, Send, Copy, RefreshCw, Users, ShieldCheck, Plus, FileCode2 };
+import { mountRunner } from './runner.mjs';
+const icons = { BookOpen, MessageSquare, Code2, Download, LogOut, Send, Copy, RefreshCw, Users, ShieldCheck, Plus, FileCode2, Play, Square, Trash2 };
 const root = document.querySelector('#app');
 const adminPage = location.pathname === '/manage';
 const state = { student: null, turns: [], health: {}, task: 'free', busy: false, mobileTab: 'chat', codes: {}, generated: [], roster: [] };
-let toastTimer, polling;
+let toastTimer, polling, runner;
 const $ = (id) => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const ico = (name) => `<i data-lucide="${name}"></i>`;
@@ -24,6 +25,7 @@ function date(time) { return new Date(time).toLocaleString('zh-CN', { hour12: fa
 function banner(mode = state.health.mode) { return mode !== 'live' ? '<div class="banner"><strong>演示模式</strong> · 当前使用规则回复，未连接大模型，不用于正式实验。</div>' : '<div class="banner">AI 回复可能有误，请结合课程内容核查。不要提交姓名、学号或其他个人信息。</div>'; }
 function header(actions = '') { return `<header class="topbar"><a class="brand" href="/"><img src="/favicon.svg" alt="EduLab"><strong>EduLab</strong><span>Python 学习实验室</span></a><div class="top-actions">${actions}</div></header>`; }
 function entry(message = '') {
+  runner?.dispose(); runner = null;
   clearInterval(polling); state.student = null;
   root.innerHTML = `<div class="login-page">${header(adminPage ? '<a class="teacher-link" href="/">学生入口</a>' : '<a class="teacher-link" href="/manage">教师管理</a>')}${banner()}<main class="entry"><img class="logo" src="/favicon.svg" alt=""><h1>${adminPage ? '教师管理' : '进入学习实验室'}</h1><p class="muted">${adminPage ? '请输入教师管理密码。' : '请输入教师发给你的个人学习码。'}</p><form id="login"><label for="credential">${adminPage ? '管理密码' : '个人学习码'}</label><input id="credential" name="credential" type="${adminPage ? 'password' : 'text'}" autocomplete="${adminPage ? 'current-password' : 'off'}" maxlength="${adminPage ? 200 : 80}" placeholder="${adminPage ? '教师管理密码' : 'XXXX-XXXX-XXXX-XXXX'}" required ${adminPage ? '' : 'autocapitalize="characters" spellcheck="false"'}><p class="error" id="form-error">${esc(message)}</p><button class="primary" id="login-button" type="submit">${ico(adminPage ? 'shield-check' : 'book-open')}${adminPage ? '登录管理' : '进入学习'}</button></form><p class="consent muted">${adminPage ? '个人学习码仅在生成时显示，请妥善保管。' : '对话与提交的代码将按匿名编号保存。请勿填写姓名、学号或其他个人信息。演示体验不替代正式研究的知情同意。'}</p><div class="foot muted">${adminPage ? 'EduLab · 四组教学实验' : 'Python 基础 · 学习与编程练习'}</div></main></div>`;
   iconify();
@@ -44,28 +46,51 @@ function paintEditor() {
   const task = TASKS.find(t => t.id === state.task);
   $('task-title').textContent = task.title; $('task-description').textContent = task.text;
   $('code').value = state.codes[state.task] ?? task.code; updateLines();
+  runner?.showTask();
   document.querySelectorAll('[data-task]').forEach(el => { el.classList.toggle('active', el.dataset.task === state.task); el.setAttribute('aria-current', el.dataset.task === state.task ? 'true' : 'false'); });
 }
 function updateLines() { $('lines').textContent = Array.from({ length: $('code').value.split('\n').length }, (_, i) => i + 1).join('\n'); $('line-count').textContent = `${$('code').value.split('\n').length} 行`; }
 function studentView() {
   const s = state.student;
   root.innerHTML = `${header(`<span class="student-id record-code">${esc(s.id)}</span><button class="icon" id="export-own" title="下载我的记录" aria-label="下载我的记录">${ico('download')}</button><button class="icon" id="logout" title="退出学习" aria-label="退出学习">${ico('log-out')}</button>`)}${banner(s.mode)}<div class="work"><aside class="sidebar"><div><h2>学习任务</h2><nav class="task-list" aria-label="学习任务">${TASKS.map(t => `<button data-task="${t.id}">${ico('file-code-2')}<span>${t.title}</span></button>`).join('')}</nav></div><div class="student-meta">学习编号<strong>${esc(s.id)}</strong><p>Python 基础<br>任务示例 · 待教学定稿</p></div></aside><nav class="mobile-tabs" aria-label="工作区"><button id="show-chat" class="active">${ico('message-square')}学习对话</button><button id="show-code">${ico('code-2')}编程练习</button></nav><main class="panels" id="panels" data-tab="chat"><section class="coding"><div class="section-head"><h2>编程练习</h2><button class="icon" id="download-code" title="下载 Python 文件" aria-label="下载 Python 文件">${ico('download')}</button></div><div class="task-body"><h3 id="task-title"></h3><p id="task-description"></p></div><div class="editor"><div class="filebar">${ico('file-code-2')}<span>practice.py</span><span class="language">Python</span></div><div class="code-wrap"><div class="line-numbers" id="lines" aria-hidden="true"></div><textarea id="code" aria-label="Python 代码" spellcheck="false" maxlength="12000" wrap="off"></textarea></div><div class="editor-status"><span>Python · UTF-8</span><span id="line-count"></span></div></div><div class="editor-controls"><small>代码未执行；提交后由助手查看。</small><button id="ask-code">${ico('message-square')}询问代码</button></div></section><section class="chat"><div class="section-head"><div class="agent"><span class="avatar">${ico('message-square')}</span><div><strong>${esc(s.name)}</strong><small>${s.mode === 'demo' ? '演示模式' : '学习支持'}</small></div></div><button class="icon" id="refresh" title="刷新记录" aria-label="刷新记录">${ico('refresh-cw')}</button></div><div class="messages" id="messages" aria-live="polite" aria-relevant="additions"></div><form class="composer" id="chat-form"><label class="sr-only" for="question">学习问题</label><textarea id="question" maxlength="4000" placeholder="写下你的问题…" aria-label="学习问题"></textarea><div class="compose-actions"><label class="check"><input type="checkbox" id="attach">附上当前代码</label><button class="primary" type="submit" id="send">${ico('send')}发送</button></div><div id="save-state" class="saved">已加载服务器记录</div><p class="error" id="form-error"></p></form></section></main></div>`;
+  document.querySelector('.student-meta p').textContent = 'Python 基础 · 8周学习单元';
+  document.querySelector('.editor-controls small').textContent = 'Python · 浏览器运行';
+  runner?.dispose();
+  runner = mountRunner({ container: document.querySelector('.editor-controls'), getCode: currentCode, getTask: () => state.task, icon: ico, iconify });
+  const character = GROUPS[s.group];
+  const portrait = document.createElement('div');
+  portrait.className = 'character-panel';
+  portrait.innerHTML = `<img src="${character.image}" alt="${esc(character.name)}形象照片" width="160" height="160"><div><strong>${esc(character.name)}</strong><p>${['A', 'B'].includes(s.group) ? '以工程师导师的身份，协助你学习 Python。' : '以同学伙伴的身份，和你一起学习 Python。'}</p></div>`;
+  $('messages').before(portrait);
+  document.querySelector('.agent .avatar').innerHTML = `<img src="${character.image}" alt="" width="36" height="36">`;
   iconify(); paintEditor(); paintMessages();
   $('logout').onclick = logout;
   $('export-own').onclick = () => download(`edulab-${s.id}.json`, JSON.stringify({ student: s, turns: state.turns, exportedAt: new Date().toISOString() }, null, 2));
   $('download-code').onclick = () => download('practice.py', currentCode(), 'text/x-python;charset=utf-8');
   $('refresh').onclick = async () => { try { await refresh(); toast('记录已刷新'); } catch (e) { error(e.message); } };
-  $('code').oninput = () => { state.codes[state.task] = currentCode(); updateLines(); };
+  $('code').oninput = () => { state.codes[state.task] = currentCode(); updateLines(); runner.codeChanged(); };
   $('code').onscroll = () => { $('lines').scrollTop = $('code').scrollTop; };
   $('code').onkeydown = e => { if (e.key === 'Tab') { e.preventDefault(); const el = e.target; el.setRangeText('    ', el.selectionStart, el.selectionEnd, 'end'); el.dispatchEvent(new Event('input')); } };
-  document.querySelectorAll('[data-task]').forEach(el => el.onclick = () => { if (state.busy) return toast('请等待当前回复完成后切换任务。'); state.codes[state.task] = currentCode(); state.task = el.dataset.task; paintEditor(); });
+  document.querySelectorAll('[data-task]').forEach(el => el.onclick = () => { if (state.busy) return toast('请等待当前回复完成后切换任务。'); runner.beforeTaskChange(); state.codes[state.task] = currentCode(); state.task = el.dataset.task; paintEditor(); });
   const tab = name => { state.mobileTab = name; $('panels').dataset.tab = name; $('show-chat').classList.toggle('active', name === 'chat'); $('show-code').classList.toggle('active', name === 'code'); };
   $('show-chat').onclick = () => tab('chat'); $('show-code').onclick = () => tab('code');
-  $('ask-code').onclick = () => { $('attach').checked = true; if (!$('question').value.trim()) $('question').value = '请帮我检查这段代码，并提示下一步如何修改。'; tab('chat'); $('question').focus(); };
+  $('ask-code').onclick = () => {
+    if (state.busy) return toast('请等待当前回复完成。');
+    if (runner.isRunning()) return toast('请等待运行完成或先停止运行。');
+    $('attach').checked = true;
+    if (!$('question').value.trim()) $('question').value = '请结合当前任务、代码和运行结果，帮我定位问题，并提示下一步。';
+    tab('chat'); $('chat-form').requestSubmit();
+  };
   $('chat-form').onsubmit = async e => {
     e.preventDefault(); if (state.busy) return;
-    const question = $('question').value.trim(), code = $('attach').checked ? currentCode() : '';
+    let question = $('question').value.trim();
+    const code = $('attach').checked ? currentCode() : '';
     if (!question && !code.trim()) return error('请先填写问题，或附上当前代码。');
+    if (code) {
+      const context = runner.questionContext();
+      if (question.length + context.length > 4000) return error('问题加运行结果超过长度限制，请缩短问题后发送。');
+      question += context;
+    }
     const requestId = crypto.randomUUID(); state.busy = true; $('send').disabled = true; error(''); $('save-state').textContent = '正在提交…';
     try {
       const result = await api('/chat', { question, code, task: state.task, requestId });

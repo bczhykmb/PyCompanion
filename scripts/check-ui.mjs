@@ -5,7 +5,7 @@ const password = (await fs.readFile('.env.local','utf8')).match(/^ADMIN_PASSWORD
 const browser = await chromium.launch({ headless:true, executablePath:'C:/Program Files/Google/Chrome/Application/chrome.exe' });
 const context = await browser.newContext({ viewport:{width:1440,height:1000},acceptDownloads:true });
 const page = await context.newPage(); const errors=[]; page.on('pageerror', e => errors.push(e.message));
-const shots = 'D:/hhy/agent-framework/tmp/edulab-preview'; await fs.mkdir(shots,{recursive:true});
+const shots = `D:/hhy/agent-framework/tmp/edulab-curriculum-${Date.now()}`; await fs.mkdir(shots,{recursive:true});
 try {
   await page.goto('http://127.0.0.1:4191/manage'); await page.locator('#credential').fill(password); await page.locator('#login-button').click();
   await page.locator('#group').waitFor(); await page.locator('#group').selectOption('D');
@@ -15,8 +15,21 @@ try {
   await page.locator('#logout').click(); await page.goto('http://127.0.0.1:4191/');
   await page.screenshot({path:shots+'/entry.png',fullPage:true});
   await page.locator('#credential').fill(code); await page.locator('#login-button').click();
-  await page.locator('#code').waitFor(); await page.locator('[data-task=variables]').click();
+  await page.locator('#code').waitFor();
+  assert.equal(await page.locator('[data-task]').count(),9);
+  for (const id of ['intro','variables','conditions','for-loop','while-loop','loops','functions','project']) {
+    await page.locator(`[data-task="${id}"]`).click();
+    assert.match(await page.locator('#task-description').textContent(), /完成检查/);
+    assert.ok((await page.locator('#code').inputValue()).length > 0);
+  }
+  await page.locator('[data-task=variables]').click();
+  await page.locator('.character-panel img').waitFor();
+  await page.waitForFunction(() => document.querySelector('.character-panel img')?.naturalWidth > 0);
+  assert.match(await page.locator('.character-panel img').getAttribute('src'), /classmate\.png/);
   await page.locator('#code').fill('count = 12\nmass = 2.5\nprint(count * mass)');
+  await page.locator('[data-task=project]').click();
+  await page.locator('[data-task=variables]').click();
+  assert.match(await page.locator('#code').inputValue(), /print\(count \* mass\)/);
   await page.locator('#question').fill('变量有什么作用？'); await page.locator('#attach').check();
   await page.locator('#send').click(); await page.locator('.turn .answer').filter({hasText:'演示模式'}).waitFor();
   assert.equal(await page.locator('.turn').count(),1);
@@ -26,7 +39,10 @@ try {
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth),false);
   await page.setViewportSize({width:390,height:844}); await page.screenshot({path:shots+'/student-mobile-chat.png',fullPage:true});
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth),false);
-  await page.locator('#show-code').click(); await page.screenshot({path:shots+'/student-mobile-code.png',fullPage:true});
+  await page.locator('#show-code').click();
+  await page.locator('[data-task=project]').click();
+  assert.match(await page.locator('#task-title').textContent(), /第8周/);
+  await page.screenshot({path:shots+'/student-mobile-code.png',fullPage:true});
   assert.equal(await page.locator('#code').isVisible(),true);
   await page.locator('#logout').click(); await page.locator('#credential').waitFor();
   assert.deepEqual(errors,[]);

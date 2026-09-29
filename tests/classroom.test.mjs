@@ -2,7 +2,32 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { handleApi, hash } from '../lib/api.mjs';
 import { openLocalDatabase } from '../lib/local-db.mjs';
-import { makePrompt } from '../lib/experiment.mjs';
+import { makePrompt, GROUPS, TASKS, demoAnswer } from '../lib/experiment.mjs';
+
+test('eight weekly units plus independent practice have complete shared materials', () => {
+  assert.equal(TASKS.length, 9);
+  assert.equal(new Set(TASKS.map(t => t.id)).size, 9);
+  assert.deepEqual(TASKS.slice(1).map(t => t.week), [1,2,3,4,5,6,7,8]);
+  for (const task of TASKS.slice(1)) {
+    for (const label of ['学习目标', '基础任务', '进阶练习', '完成检查']) assert.ok(task.text.includes(label));
+    assert.ok(task.code.length > 0);
+    const bodies = Object.keys(GROUPS).map(g => demoAnswer(g, '', task.code, task.id).split('\n\n')[1]);
+    assert.equal(new Set(bodies).size, 1);
+  }
+});
+
+test('four conditions pair original portraits with neutral or supportive feedback', () => {
+  assert.equal(GROUPS.A.image, GROUPS.B.image);
+  assert.equal(GROUPS.C.image, GROUPS.D.image);
+  assert.notEqual(GROUPS.A.image, GROUPS.C.image);
+  const replies = ['A','B','C','D'].map(g => demoAnswer(g,'变量','','variables'));
+  assert.equal(new Set(replies).size,4);
+  assert.equal(new Set(replies.map(r => r.split('\n\n')[1])).size,1);
+  assert.match(makePrompt('A'), /工程师导师/);
+  assert.match(makePrompt('C'), /一起学习Python的同学/);
+  assert.match(makePrompt('B'), /给予支持/);
+  assert.match(makePrompt('D'), /给予支持/);
+});
 
 const password = 'unit-test-password-long-enough';
 function fixture() {
@@ -74,6 +99,7 @@ test('live model uses the stored prompt and history, not browser-supplied instru
     const result = await f.call('/chat', { question:'test', task:'free', code:'print(1)', requestId:'real-test-request', systemPrompt:'ATTACK' }, a.cookie);
     assert.equal(result.data.turn.answer, '模型测试回复'); assert.equal(payload.messages[0].content, makePrompt('B'));
     assert.equal(payload.messages[1].content.includes('print(1)'), true);
+    assert.ok(payload.messages[1].content.includes(TASKS[0].text));
   } finally { globalThis.fetch = savedFetch; f.DB.close(); }
 });
 test('invalid values, oversized requests and expired sessions are rejected', async () => {

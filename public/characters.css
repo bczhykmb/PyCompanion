@@ -1,0 +1,6 @@
+.character-panel{display:flex;align-items:center;gap:18px;padding:16px 22px;border-bottom:1px solid var(--line);background:#f6f8f7;flex:none}
+.character-panel>img{width:120px;height:120px;object-fit:cover;border-radius:6px;flex:none}
+.character-panel strong{font-size:16px}
+.character-panel p{margin:6px 0 0;color:var(--muted);font-size:13px;line-height:1.7}
+.avatar img{width:36px;height:36px;object-fit:cover;border-radius:6px}
+@media(max-width:760px){.character-panel{gap:12px;padding:10px 14px}.character-panel>img{width:72px;height:72px}.character-panel strong{font-size:14px}.character-panel p{font-size:12px}.messages{min-height:130px}}
