@@ -2,7 +2,18 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { handleApi, hash } from '../lib/api.mjs';
 import { openLocalDatabase } from '../lib/local-db.mjs';
-import { makePrompt, GROUPS, TASKS, demoAnswer } from '../lib/experiment.mjs';
+import { makePrompt, GROUPS, TASKS, demoAnswer, COMMON_TEACHING_PROMPT, FEEDBACK_PROMPTS, PROMPT_VERSION } from '../lib/experiment.mjs';
+
+test('feedback conditions share teaching rules but require distinct emotional responses', () => {
+  for (const group of Object.keys(GROUPS)) {
+    const prompt = makePrompt(group);
+    assert.ok(prompt.startsWith(COMMON_TEACHING_PROMPT));
+    assert.ok(prompt.includes(FEEDBACK_PROMPTS[['B', 'D'].includes(group) ? 'positive' : 'neutral']));
+    assert.ok(!prompt.includes(FEEDBACK_PROMPTS[['B', 'D'].includes(group) ? 'neutral' : 'positive']));
+  }
+  assert.match(makePrompt('D'), /不能只输出技术说明/);
+  assert.match(makePrompt('A'), /不添加情绪安慰/);
+});
 
 test('eight weekly units plus independent practice have complete shared materials', () => {
   assert.equal(TASKS.length, 9);
@@ -43,6 +54,9 @@ async function participant(f, group = 'A') {
   const created = await f.call('/admin/students', { group, count: 1 }, teacher.cookie);
   assert.equal(created.status, 201);
   const student = created.data.students[0];
+  const snapshot = JSON.parse((await f.DB.prepare('SELECT config FROM students WHERE id=?').bind(student.id).first()).config);
+  assert.equal(snapshot.version, PROMPT_VERSION);
+  assert.equal(snapshot.prompt, makePrompt(group));
   const login = await f.call('/login', { code: student.code });
   return { cookie: login.cookie, teacher: teacher.cookie, student };
 }
