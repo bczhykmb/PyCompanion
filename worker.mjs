@@ -14,7 +14,10 @@ export default {
     const content = req.method === 'HEAD' ? null : asset.encoding === 'base64' ? Uint8Array.from(atob(asset.content), c => c.charCodeAt(0)) : asset.content;
     const assetHeaders = { ...headers, 'Content-Type': asset.type, 'Cache-Control': asset.encoding === 'base64' ? 'public, max-age=3600' : 'no-store' };
     // Student code may fetch runtime files, but not authenticated classroom APIs.
-    if (path === '/python-worker.mjs') assetHeaders['Content-Security-Policy'] = "default-src 'none'; script-src https://cdn.jsdelivr.net/pyodide/v314.0.7/full/ 'wasm-unsafe-eval'; connect-src https://cdn.jsdelivr.net/pyodide/v314.0.7/full/; worker-src 'none'";
+    if (path === '/python-worker.mjs') {
+      const runtime = new URL('/python-runtime/v314.0.7/', req.url).href;
+      assetHeaders['Content-Security-Policy'] = `default-src 'none'; script-src ${runtime} 'wasm-unsafe-eval'; connect-src ${runtime}; worker-src 'none'`;
+    }
     return new Response(content, { headers: assetHeaders });
   },
 };

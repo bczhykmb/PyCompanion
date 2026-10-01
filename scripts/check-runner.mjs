@@ -71,7 +71,7 @@ try {
   await page.screenshot({ path: shots + '/mobile.png', fullPage: true });
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
   console.log('PASS stop, timeout, truncation, recovery, mobile');
-  await context.route('https://cdn.jsdelivr.net/**', route => route.abort());
+  await context.route('**/python-runtime/**', route => route.abort());
   await page.locator('#run-python').click();
   await page.waitForFunction(() => !document.querySelector('#run-python').disabled);
   assert.match(await page.locator('#run-status').textContent(), /加载失败/);

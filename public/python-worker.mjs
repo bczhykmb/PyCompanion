@@ -1,4 +1,4 @@
-const INDEX_URL = 'https://cdn.jsdelivr.net/pyodide/v314.0.7/full/';
+const INDEX_URL = new URL('/python-runtime/v314.0.7/', self.location.href).href;
 const send = self.postMessage.bind(self);
 let used = false;
 self.onmessage = async ({ data }) => {
@@ -17,7 +17,7 @@ self.onmessage = async ({ data }) => {
     const { loadPyodide } = await import(INDEX_URL + 'pyodide.mjs');
     pyodide = await loadPyodide({ indexURL: INDEX_URL, stdout: () => {}, stderr: () => {}, jsglobals: {} });
   } catch {
-    send({ type: 'load-error', text: 'Python 环境加载失败。请检查网络是否允许访问 cdn.jsdelivr.net，然后重试。' });
+    send({ type: 'load-error', text: '本站 Python 运行组件加载失败，请重试；若持续失败，请联系教师检查部署文件和网络。' });
     return;
   }
   const lines = data.stdin === '' ? [] : data.stdin.replace(/\r\n?/g, '\n').split('\n');

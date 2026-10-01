@@ -35,9 +35,9 @@ export function mountRunner({ container, getCode, getTask, icon, iconify }) {
     active = true; run.disabled = true; stop.disabled = false; stdin.disabled = true; paint();
     const fail = text => { result.output += text; result.status = '加载失败，可重试'; result.finished = true; end(); paint(); };
     try {
-      worker = new Worker('/python-worker.mjs?v=1', { type: 'module', name: 'classroom-python' });
+      worker = new Worker('/python-worker.mjs?v=2', { type: 'module', name: 'classroom-python' });
       timer = setTimeout(() => fail('Python 环境加载超时，请检查网络后重试。'), 90000);
-      worker.onerror = event => { event.preventDefault(); fail('运行环境发生错误，请重试或检查浏览器是否支持 WebAssembly。'); };
+      worker.onerror = event => { event.preventDefault(); fail('Python 运行线程发生错误，请重试；若持续失败，请联系教师检查浏览器控制台和本站运行组件。'); };
       worker.onmessage = ({ data }) => {
         if (!active) return;
         if (data.type === 'running') {
