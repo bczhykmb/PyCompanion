@@ -1,8 +1,10 @@
-# EduLab 机房轻量版
+# PyCompanion · Python 学习实验室
+
+面向中职学生 Python 编程学习的教学实验平台，支持导师型与同伴型智能体、积极与中性情绪反馈的四组配置，提供编程练习、浏览器内 Python 运行和学习对话。
 
 Vercel 部署请阅读 [VERCEL.md](./VERCEL.md)。线上使用静态页面与 API 函数，不能直接依赖本机的密码文件或 SQLite 文件；未配置云数据库时会显示明确提示。
 
-来自 https://github.com/PrideWood/edulab 的独立轻量改造入口。上游 Next.js、Coze 和 PostgreSQL 版本保留在父目录，不覆盖原平台。
+本项目基于 [EduLab](https://github.com/PrideWood/edulab) 进行独立轻量化改造，现以 **PyCompanion** 名称维护。当前仓库为 [bczhykmb/PyCompanion](https://github.com/bczhykmb/PyCompanion)，不包含上游完整的 Next.js、Coze 和 PostgreSQL 应用；原项目说明请参阅上游仓库。
 
 学生使用网页及教师分发的个人学习码进入。组别由教师指定并在服务端固定，不表示已经决定研究的随机分组办法。不收集姓名、学号或专业；身份对应表由教师在平台外管理。
 
@@ -12,7 +14,7 @@ Vercel 部署请阅读 [VERCEL.md](./VERCEL.md)。线上使用静态页面与 AP
 
 “询问代码”会直接发送当前代码，以及与代码和输入均匹配的最近运行状态和截断输出。运行结果来自学生浏览器，不能作为防篡改评分依据。未提问的本地运行不集中保存；刷新会丢失未保存草稿和运行结果。Pyodide 官方依据：https://pyodide.org/en/stable/usage/webworker.html 和 https://pyodide.org/en/stable/usage/streams.html 。
 
-形象使用原项目的静态照片：A/B组为工程师，C/D组为同学；A/C中性反馈，B/D积极反馈。不需要CyberVerse、音视频服务或GPU。新学习码保存v2角色提示词快照；既有学习码的历史模型提示词不覆盖，真实模型体验应生成新码。演示回复仍会明确标记为规则回复。
+形象使用原项目的静态照片：A/B组为导师型（工程师导师），C/D组为同伴型（同学伙伴）；A/C中性反馈，B/D积极反馈。不需要CyberVerse、音视频服务或GPU。新学习码保存v2角色提示词快照；既有学习码的历史模型提示词不覆盖，真实模型体验应生成新码。演示回复仍会明确标记为规则回复。
 
 集中保存匿名对话、提交代码、学习任务与时间。未实现前后测、量表或细粒度行为序列采集，不能视为完整研究平台。
 
