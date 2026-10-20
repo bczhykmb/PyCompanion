@@ -1,7 +1,7 @@
-import { createIcons, BookOpen, MessageSquare, Code2, Download, LogOut, Send, Copy, RefreshCw, Users, ShieldCheck, Plus, FileCode2, Play, Square, Trash2, PanelLeftClose, PanelLeftOpen } from 'lucide';
+import { createIcons, BookOpen, MessageSquare, Code2, Download, LogOut, Send, Copy, RefreshCw, Users, ShieldCheck, Plus, FileCode2, Play, Square, Trash2, PanelLeftClose, PanelLeftOpen, CircleCheck } from 'lucide';
 import { TASKS, GROUPS } from '../lib/experiment.mjs';
 import { mountRunner } from './runner.mjs';
-const icons = { BookOpen, MessageSquare, Code2, Download, LogOut, Send, Copy, RefreshCw, Users, ShieldCheck, Plus, FileCode2, Play, Square, Trash2, PanelLeftClose, PanelLeftOpen };
+const icons = { BookOpen, MessageSquare, Code2, Download, LogOut, Send, Copy, RefreshCw, Users, ShieldCheck, Plus, FileCode2, Play, Square, Trash2, PanelLeftClose, PanelLeftOpen, CircleCheck };
 const root = document.querySelector('#app');
 const adminPage = location.pathname === '/manage';
 const state = { student: null, turns: [], health: {}, task: 'free', busy: false, mobileTab: 'chat', codes: {}, generated: [], roster: [] };
@@ -36,10 +36,18 @@ async function logout() {
   try { await api('/logout', {}); clearInterval(polling); state.codes = {}; state.turns = []; state.student = null; entry(); } catch (e) { error(e.message); }
 }
 function currentCode() { return $('code')?.value ?? state.codes[state.task] ?? TASKS.find(t => t.id === state.task).code; }
+function answerContent(turn) {
+  const answer = String(turn.answer ?? '');
+  const completed = turn.mode === 'live' && turn.task !== 'free' && /^【基础任务完成】\r?\n本单元基础任务已完成。(?:\r?\n|$)/.test(answer);
+  if (!completed) return esc(answer);
+  const body = answer.replace(/^【基础任务完成】\r?\n本单元基础任务已完成。\s*/, '');
+  return `<div class="completion-signal" role="status">${ico('circle-check')}<span>本单元基础任务已完成</span></div><div class="completion-source">智能体根据已提交材料核对</div>${esc(body)}`;
+}
 function paintMessages() {
   const view = $('messages'); if (!view) return;
   const nearBottom = view.scrollHeight - view.scrollTop - view.clientHeight < 90;
-  view.innerHTML = state.turns.length ? state.turns.map(t => `<article class="turn"><div class="message-label"><span>我的问题 · ${esc(TASKS.find(x => x.id === t.task)?.title || '自主练习')}</span><time>${esc(date(t.created))}</time></div><div class="question"><div class="message-body">${esc(t.question || '请查看我的代码。')}</div>${t.code ? `<details><summary>已提交的 Python 代码</summary><pre>${esc(t.code)}</pre></details>` : ''}</div><div class="message-label"><span>${esc(state.student.name)}</span><span>${t.mode === 'demo' ? '演示回复' : 'AI 回复'}</span></div><div class="answer message-body">${t.status === 'pending' ? '<span class="pending">正在回复，记录已保存…</span>' : t.status === 'failed' ? `<span class="error">${esc(t.error || '本次回复失败，请重新发送。')}</span>` : esc(t.answer)}</div></article>`).join('') : `<div class="welcome"><strong>${esc(state.student.name)}</strong><p>你可以提出 Python 学习问题，也可以附上正在编写的代码。</p></div>`;
+  view.innerHTML = state.turns.length ? state.turns.map(t => `<article class="turn"><div class="message-label"><span>我的问题 · ${esc(TASKS.find(x => x.id === t.task)?.title || '自主练习')}</span><time>${esc(date(t.created))}</time></div><div class="question"><div class="message-body">${esc(t.question || '请查看我的代码。')}</div>${t.code ? `<details><summary>已提交的 Python 代码</summary><pre>${esc(t.code)}</pre></details>` : ''}</div><div class="message-label"><span>${esc(state.student.name)}</span><span>${t.mode === 'demo' ? '演示回复' : 'AI 回复'}</span></div><div class="answer message-body">${t.status === 'pending' ? '<span class="pending">正在回复，记录已保存…</span>' : t.status === 'failed' ? `<span class="error">${esc(t.error || '本次回复失败，请重新发送。')}</span>` : answerContent(t)}</div></article>`).join('') : `<div class="welcome"><strong>${esc(state.student.name)}</strong><p>你可以提出 Python 学习问题，也可以附上正在编写的代码。</p></div>`;
+  iconify();
   if (nearBottom || state.busy) view.scrollTop = view.scrollHeight;
 }
 function paintEditor() {

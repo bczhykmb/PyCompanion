@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { handleApi, hash } from '../lib/api.mjs';
 import { openLocalDatabase } from '../lib/local-db.mjs';
-import { makePrompt, GROUPS, TASKS, demoAnswer, COMMON_TEACHING_PROMPT, FEEDBACK_PROMPTS, ROLE_PROMPTS, PROMPT_VERSION } from '../lib/experiment.mjs';
+import { makePrompt, GROUPS, TASKS, demoAnswer, COMMON_TEACHING_PROMPT, FEEDBACK_PROMPTS, ROLE_PROMPTS, PROMPT_VERSION, COMPLETION_PROMPT } from '../lib/experiment.mjs';
 
 test('factorial prompts change exactly one factor between paired conditions', () => {
   assert.equal(makePrompt('A').replace(FEEDBACK_PROMPTS.neutral, ''), makePrompt('B').replace(FEEDBACK_PROMPTS.positive, ''));
@@ -47,6 +47,17 @@ test('four conditions pair original portraits with neutral or supportive feedbac
   assert.match(makePrompt('C'), /一起学习Python的同学/);
   assert.match(makePrompt('B'), /给予支持/);
   assert.match(makePrompt('D'), /给予支持/);
+});
+
+test('beginner units separate required checks from optional extensions', () => {
+  for (const task of TASKS.slice(1)) {
+    assert.ok(task.text.includes('分步提示：'));
+    assert.ok(task.text.includes('进阶练习（选做）'));
+    assert.ok(task.text.includes('完成检查（必做）'));
+  }
+  assert.match(COMPLETION_PROMPT, /没有运行结果时/);
+  assert.match(COMPLETION_PROMPT, /四组完成标准完全相同/);
+  assert.match(COMMON_TEACHING_PROMPT, /从零学习/);
 });
 
 const password = 'Test12345';
@@ -127,7 +138,7 @@ test('live model uses the stored prompt and history, not browser-supplied instru
   globalThis.fetch = async (url, opts) => { assert.equal(url, 'https://api.deepseek.com/chat/completions'); payload = JSON.parse(opts.body); return Response.json({ choices:[{ message:{ content:'模型测试回复' } }] }); };
   try {
     const result = await f.call('/chat', { question:'test', task:'free', code:'print(1)', requestId:'real-test-request', systemPrompt:'ATTACK' }, a.cookie);
-    assert.equal(result.data.turn.answer, '模型测试回复'); assert.equal(payload.messages[0].content, makePrompt('B'));
+    assert.equal(result.data.turn.answer, '模型测试回复'); assert.equal(payload.messages[0].content, makePrompt('B') + String.fromCharCode(10,10) + COMPLETION_PROMPT);
     assert.equal(payload.messages[1].content.includes('print(1)'), true);
     assert.ok(payload.messages[1].content.includes(TASKS[0].text));
   } finally { globalThis.fetch = savedFetch; f.DB.close(); }
@@ -147,12 +158,12 @@ test('all live groups retain identity, isolated history and equal model settings
       const first = await f.call('/chat', input, p.cookie);
       assert.equal(first.data.turn.status, 'completed');
       const payload = captured.at(-1);
-      assert.equal(payload.messages[0].content, makePrompt(group));
+      assert.equal(payload.messages[0].content, makePrompt(group) + String.fromCharCode(10,10) + COMPLETION_PROMPT);
       assert.equal(payload.messages.length, 2, 'No history from other students');
       assert.equal((await f.call('/me', undefined, p.cookie)).data.student.group, group);
       await f.call('/chat', { ...input, question: '还是不懂', requestId: `factorial-${group}-second` }, p.cookie);
       assert.equal(captured.at(-1).messages[2].content, first.data.turn.answer);
-      assert.equal(captured.at(-1).messages[0].content, makePrompt(group));
+      assert.equal(captured.at(-1).messages[0].content, makePrompt(group) + String.fromCharCode(10,10) + COMPLETION_PROMPT);
     }
     const settings = captured.map(({ url, model, temperature, max_tokens, stream }) => JSON.stringify({ url, model, temperature, max_tokens, stream }));
     assert.equal(new Set(settings).size, 1);

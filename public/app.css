@@ -3,6 +3,9 @@
 .question,.answer{min-width:0;max-width:100%;padding:12px 14px;border-radius:8px;border:1px solid transparent}
 .question{background:#f0f3f6;border-color:#e0e5eb}
 .answer{background:#e9f4ee;border-color:#cde2d5;color:#20272b}
+.completion-signal{display:flex;align-items:center;gap:8px;font-weight:600;color:#18553f;white-space:normal}
+.completion-signal svg{width:22px;height:22px;flex:none}
+.completion-source{font-size:12px;color:#52665b;margin:3px 0 10px;white-space:normal}
 .sidebar-head{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:10px}
 .sidebar .sidebar-head h2{display:block;margin:0;padding:0 9px}
 .sidebar-head .icon{flex:none}
