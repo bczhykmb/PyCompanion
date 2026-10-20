@@ -13,7 +13,7 @@
 
 | 变量 | 配置方式 |
 | --- | --- |
-| ADMIN_PASSWORD | 教师自己设置的至少16位强密码；只填在服务器环境变量，不发给学生 |
+| ADMIN_PASSWORD | 教师自己设置的至少9位密码；只填在服务器环境变量，不发给学生 |
 | MODEL_MODE | 目前填 demo |
 | TURSO_DATABASE_URL | 从自己的 Turso/libSQL 云数据库复制连接地址 |
 | TURSO_AUTH_TOKEN | 该数据库的读写令牌，仅保存于 Vercel 环境变量 |

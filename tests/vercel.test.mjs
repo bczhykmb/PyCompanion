@@ -42,7 +42,7 @@ test('Vercel routes use persistent adapter for teacher, student, chat and a new 
   await migrateRemote(client);
   let connections = 0;
   const options = {
-    env: { ADMIN_PASSWORD: 'test-admin-password-only', TURSO_DATABASE_URL: 'libsql://test.turso.io', TURSO_AUTH_TOKEN: 'test-token-only', MODEL_MODE: 'demo' },
+    env: { ADMIN_PASSWORD: 'Test12345', TURSO_DATABASE_URL: 'libsql://test.turso.io', TURSO_AUTH_TOKEN: 'test-token-only', MODEL_MODE: 'demo' },
     openDatabase: async () => { connections++; return wrapRemoteClient(client); },
   };
   let handle = createVercelHandler(options);

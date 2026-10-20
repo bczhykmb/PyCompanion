@@ -49,7 +49,7 @@ test('four conditions pair original portraits with neutral or supportive feedbac
   assert.match(makePrompt('D'), /给予支持/);
 });
 
-const password = 'unit-test-password-long-enough';
+const password = 'Test12345';
 function fixture() {
   const DB = openLocalDatabase(), env = { DB, ADMIN_PASSWORD: password, MODEL_MODE: 'demo' };
   async function call(path, data, cookie, extra = {}) {
@@ -69,6 +69,13 @@ async function participant(f, group = 'A') {
   const login = await f.call('/login', { code: student.code });
   return { cookie: login.cookie, teacher: teacher.cookie, student };
 }
+test('admin passwords shorter than nine characters are rejected', async () => {
+  const f = fixture();
+  f.env.ADMIN_PASSWORD = 'Test1234';
+  assert.equal((await f.call('/login', { kind: 'admin', password: 'Test1234' })).status, 503);
+  f.DB.close();
+});
+
 test('anonymous requests and cross-origin mutations are rejected', async () => {
   const f = fixture();
   assert.equal((await f.call('/me')).status, 401);
