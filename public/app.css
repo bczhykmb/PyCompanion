@@ -3,5 +3,13 @@
 .question,.answer{min-width:0;max-width:100%;padding:12px 14px;border-radius:8px;border:1px solid transparent}
 .question{background:#f0f3f6;border-color:#e0e5eb}
 .answer{background:#e9f4ee;border-color:#cde2d5;color:#20272b}
+.sidebar-head{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:10px}
+.sidebar .sidebar-head h2{display:block;margin:0;padding:0 9px}
+.sidebar-head .icon{flex:none}
+.work.sidebar-collapsed{grid-template-columns:58px minmax(0,1fr)}
+.sidebar-collapsed .sidebar{padding:12px 9px}
+.sidebar-collapsed .task-list,.sidebar-collapsed .student-meta,.sidebar-collapsed .sidebar-head h2{display:none}
+.sidebar-collapsed .sidebar-head{margin:0;justify-content:center}
+@media(max-width:760px){.sidebar-head{margin-bottom:6px}.sidebar .sidebar-head h2{padding:0}.sidebar-collapsed .sidebar{padding:6px 12px}.sidebar-collapsed .sidebar-head{justify-content:flex-start}}
 @media(max-width:1100px){.work{grid-template-columns:180px minmax(0,1fr)}.panels{grid-template-columns:minmax(0,1fr) minmax(300px,1fr)}.sidebar{padding:18px 8px}.task-body{padding:16px}.messages{padding:18px 16px}.brand span{display:none}}
 @media(max-width:760px){.topbar{height:auto;min-height:56px;padding:10px 14px;flex-wrap:wrap;gap:8px}.brand strong{font-size:17px}.top-actions{gap:5px}.top-actions .student-id{display:none}.banner{padding:7px 14px;font-size:12px}.work{height:calc(100dvh - 93px);min-height:550px;display:flex;flex-direction:column}.sidebar{padding:8px 12px;flex:none;border-right:0;border-bottom:1px solid var(--line);gap:0}.sidebar h2,.student-meta{display:none}.task-list{display:flex;overflow:auto;gap:6px}.task-list button{flex:none;min-height:34px;padding:5px 10px;font-size:12px}.task-list button svg{display:none}.panels{display:block;flex:1;min-height:0;position:relative}.coding,.chat{height:100%;border-right:0}.mobile-tabs{display:flex;background:#fff;border-bottom:1px solid var(--line);flex:none}.mobile-tabs button{flex:1;border-radius:0;border:0;border-bottom:2px solid transparent;background:white;padding:7px;font-size:13px}.mobile-tabs button.active{border-bottom-color:var(--green);color:var(--green)}.panels[data-tab=chat] .coding,.panels[data-tab=code] .chat{display:none}.section-head{height:54px;padding:0 14px}.messages{padding:18px 14px}.composer{padding:10px 12px}.composer textarea{min-height:70px}.task-body{max-height:130px;font-size:13px}.code-wrap textarea{min-height:150px}.editor{min-height:180px}.entry{margin:4vh auto;padding:24px 20px}.manage{padding:22px 14px}.manage-head{align-items:flex-start;flex-direction:column}.manage-head h1{font-size:22px}.create-form{gap:12px}.status-line{font-size:12px}.brand img{width:27px;height:27px}}

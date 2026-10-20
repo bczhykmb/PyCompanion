@@ -41,7 +41,7 @@ try {
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth),false);
   await page.locator('#show-code').click();
   await page.locator('[data-task=project]').click();
-  assert.match(await page.locator('#task-title').textContent(), /第8周/);
+  assert.match(await page.locator('#task-title').textContent(), /第8单元/);
   await page.screenshot({path:shots+'/student-mobile-code.png',fullPage:true});
   assert.equal(await page.locator('#code').isVisible(),true);
   await page.locator('#logout').click(); await page.locator('#credential').waitFor();

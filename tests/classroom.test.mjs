@@ -24,10 +24,10 @@ test('feedback conditions share teaching rules but require distinct emotional re
   assert.match(makePrompt('A'), /不添加情绪安慰/);
 });
 
-test('eight weekly units plus independent practice have complete shared materials', () => {
+test('eight learning units plus independent practice have complete shared materials', () => {
   assert.equal(TASKS.length, 9);
   assert.equal(new Set(TASKS.map(t => t.id)).size, 9);
-  assert.deepEqual(TASKS.slice(1).map(t => t.week), [1,2,3,4,5,6,7,8]);
+  assert.deepEqual(TASKS.slice(1).map(t => t.unit), [1,2,3,4,5,6,7,8]);
   for (const task of TASKS.slice(1)) {
     for (const label of ['学习目标', '基础任务', '进阶练习', '完成检查']) assert.ok(task.text.includes(label));
     assert.ok(task.code.length > 0);
