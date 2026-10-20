@@ -1,16 +1,24 @@
 .coding{overflow:auto}
 .coding .section-head,.editor-controls{flex-shrink:0}
-.coding .editor{min-height:220px}
+.coding .editor{min-height:320px}
 .coding .code-wrap textarea{min-height:120px}
 .runner{flex:none;border-top:1px solid var(--line);background:#fafbfc;min-width:0}
-.run-toolbar{display:flex;align-items:center;gap:10px;padding:8px 14px;min-height:54px}
+.run-toolbar{display:flex;align-items:center;gap:8px;padding:5px 12px;min-height:42px}
+.run-toolbar button{min-height:30px;padding:4px 10px;font-size:12px}
+.run-toolbar .icon{width:30px;height:30px;padding:6px}
+.run-toolbar button svg{width:16px;height:16px}
 .run-buttons{display:flex;align-items:center;gap:6px;flex:none}
 #run-status{font-size:12px;color:var(--muted);flex:1;min-width:0;overflow-wrap:anywhere}
-.stdin-panel{border-top:1px solid var(--line);padding:6px 16px;font-size:12px}
+.stdin-panel{border-top:1px solid var(--line);padding:4px 12px;font-size:12px}
 .stdin-panel summary{cursor:pointer;color:#425868}
 .stdin-panel label{margin:6px 0;font-weight:400}
-#python-stdin{font:13px/1.6 Consolas,"Microsoft YaHei",monospace;resize:vertical;min-height:72px;max-height:150px}
-#python-output{margin:0;padding:10px 16px;height:130px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;font:13px/1.6 Consolas,"Microsoft YaHei",monospace;background:#f0f3f6;color:#243239;border-top:1px solid var(--line)}
+#python-stdin{font:13px/1.6 Consolas,"Microsoft YaHei",monospace;resize:vertical;height:60px;min-height:48px;max-height:150px;padding:6px 8px}
+#python-output{margin:0;padding:6px 12px;height:76px;min-height:36px;max-height:240px;resize:vertical;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;font:13px/1.6 Consolas,"Microsoft YaHei",monospace;background:#f0f3f6;color:#243239;border-top:1px solid var(--line)}
+#python-output:empty{height:36px}
 #python-output.run-error{color:#9e2733}
 .editor-controls small{max-width:none}
-@media(max-width:760px){.run-toolbar{padding:6px 12px;gap:6px}.coding .editor{min-height:220px}#python-output{height:120px}.runner .icon{width:34px;min-height:34px;padding:6px}}
+.coding .editor-controls{padding:5px 12px;min-height:38px}
+.coding .editor-controls button{min-height:30px;padding:4px 10px;font-size:12px}
+.coding .filebar{height:34px;padding:6px 12px}
+.coding .editor-status{padding:3px 12px;font-size:11px}
+@media(max-width:760px){.run-toolbar{padding:5px 10px;gap:6px}.coding .editor{min-height:300px}.run-toolbar button{min-height:34px}.runner .icon{width:34px;height:34px;padding:7px}}
