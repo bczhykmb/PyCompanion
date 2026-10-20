@@ -89,7 +89,7 @@ function studentView() {
   const character = GROUPS[s.group];
   const portrait = document.createElement('div');
   portrait.className = 'character-panel';
-  portrait.innerHTML = `<img src="${character.image}" alt="${esc(character.name)}形象照片" width="160" height="160"><div><strong>${esc(character.name)}</strong><p>${['A', 'B'].includes(s.group) ? '以工程师导师的身份，协助你学习 Python。' : '以同学伙伴的身份，和你一起学习 Python。'}</p></div>`;
+  portrait.innerHTML = `<img src="${character.image}" alt="${esc(character.name)}形象照片" width="160" height="160"><div><strong>${esc(character.name)}</strong></div>`;
   $('messages').before(portrait);
   document.querySelector('.agent .avatar').innerHTML = `<img src="${character.image}" alt="" width="36" height="36">`;
   iconify(); paintEditor(); paintMessages();
