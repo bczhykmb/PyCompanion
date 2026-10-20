@@ -3,6 +3,15 @@
 .question,.answer{min-width:0;max-width:100%;padding:12px 14px;border-radius:8px;border:1px solid transparent}
 .question{background:#f0f3f6;border-color:#e0e5eb}
 .answer{background:#e9f4ee;border-color:#cde2d5;color:#20272b}
+.message-row{display:flex;align-items:flex-start;gap:8px;min-width:0}
+.student-message{flex-direction:row-reverse;margin-bottom:16px}
+.message-avatar{display:flex;align-items:center;justify-content:center;flex:none;width:32px;height:32px;object-fit:cover;border-radius:6px;margin-top:23px}
+.student-avatar{background:#e5ebf3;color:#435d7d;border:1px solid #cbd5e3}
+.student-avatar svg{width:21px;height:21px}
+.message-content{flex:1;min-width:0}
+.message-row .question{margin-bottom:0}
+.message-row .message-label{flex-wrap:wrap}
+.message-row .message-label time{font-size:11px}
 .completion-signal{display:flex;align-items:center;gap:8px;font-weight:600;color:#18553f;white-space:normal}
 .completion-signal svg{width:22px;height:22px;flex:none}
 .completion-source{font-size:12px;color:#52665b;margin:3px 0 10px;white-space:normal}
