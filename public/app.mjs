@@ -164,6 +164,21 @@ function mountRosterImport() {
   advanced.append(form);
   advanced.insertAdjacentHTML('beforebegin', `<form id="import-roster" class="roster-import"><h2>学号名单</h2><div class="class-groups">${Object.entries(CLASS_GROUPS).map(([name, group]) => `<span class="badge">${esc(name)} · ${group}组</span>`).join('')}</div><label for="roster-file">名单文件</label><input id="roster-file" type="file" accept=".json,application/json" required><p id="roster-preview" class="muted" role="status"></p><button id="import-button" class="primary" type="submit" disabled>${ico('plus')}导入学号名单</button></form>`);
   const table = document.querySelector('.manage > .table-wrap table');
+  const imported = state.roster.filter(s => s.student_number);
+  if (imported.length) {
+    $('import-roster').insertAdjacentHTML('afterend', `<button id="clear-roster" type="button">${ico('trash-2')}清空已导入名单（${imported.length}人）</button>`);
+    $('clear-roster').onclick = async () => {
+      if (!confirm(`将清空${imported.length}个学号账号及其对话、代码和登录状态，备用学习码不受影响。系统会先下载全部记录备份。确认清空？`)) return;
+      const button = $('clear-roster'); button.disabled = true; error('');
+      try {
+        const backup = await api('/admin/export');
+        download(`pycompanion-before-roster-reset-${Date.now()}.json`, JSON.stringify(backup, null, 2));
+        const result = await api('/admin/clear-roster', { confirmation: 'CLEAR_IMPORTED_ROSTER', expectedIds: imported.map(s => s.id) });
+        state.roster = (await api('/admin/students')).students;
+        adminView(); toast(`已清空${result.removed}个学号账号，备用学习码已保留`);
+      } catch (e) { error(e.message); if (button.isConnected) button.disabled = false; }
+    };
+  }
   table.innerHTML = `<thead><tr><th>学号</th><th>班级</th><th>研究编号</th><th>实验条件</th><th>模式</th><th>提问次数</th><th>最近提问</th></tr></thead><tbody>${state.roster.map(s => `<tr><td class="record-code">${esc(s.student_number || '备用学习码')}</td><td>${esc(s.class_name || '—')}</td><td class="record-code">${esc(s.id)}</td><td>${esc(s.group_id)} · ${esc(GROUPS[s.group_id].role)} · ${esc(GROUPS[s.group_id].feedback)}</td><td>${s.mode === 'demo' ? '演示' : '真实模型'}</td><td>${s.turns}</td><td>${s.lastActive ? esc(date(s.lastActive)) : '尚未提问'}</td></tr>`).join('') || '<tr><td colspan="7" class="empty">尚未导入学生名单。</td></tr>'}</tbody>`;
   let entries;
   $('roster-file').onchange = async () => {

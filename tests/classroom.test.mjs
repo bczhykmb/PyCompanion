@@ -69,7 +69,7 @@ test('student-number roster fixes class groups and preserves existing accounts o
       { studentNumber: '209900000001', className: '计网2541', group: 'A', name: 'discarded' },
       { studentNumber: '209900000002', className: '计网2542' },
       { studentNumber: '209900000003', className: '计网2543' },
-      { studentNumber: '209900000004', className: '计网25651' },
+      { studentNumber: '209900000004', className: '计网2532' },
     ];
     assert.equal((await f.call('/admin/import', { students })).status, 401);
     const imported = await f.call('/admin/import', { students }, teacher.cookie);
@@ -105,7 +105,7 @@ test('roster validation and conflicting imports never partially change the roste
     const teacher = await f.call('/login', { kind: 'admin', password });
     const a = { studentNumber: '209900001001', className: '计网2541' };
     const b = { studentNumber: '209900001002', className: '计网2542' };
-    for (const students of [[a, a], [{ ...a, className: '其他班' }], [{ ...a, studentNumber: 209900001001 }], []]) {
+    for (const students of [[a, a], [{ ...a, className: '其他班' }], [{ ...a, className: '计网25651' }], [{ ...a, studentNumber: 209900001001 }], []]) {
       assert.equal((await f.call('/admin/import', { students }, teacher.cookie)).status, 400);
     }
     assert.equal((await f.call('/admin/import', { students: [a] }, teacher.cookie)).status, 201);
@@ -124,6 +124,35 @@ function fixture() {
   }
   return { DB, env, call };
 }
+test('clearing imported roster preserves backup codes, rejects stale confirmation and invalidates removed sessions', async () => {
+  const f = fixture();
+  try {
+    const spare = await participant(f);
+    const entries = [{ studentNumber: '209900003001', className: '计网2532' }];
+    await f.call('/admin/import', { students: entries }, spare.teacher);
+    const login = await f.call('/login', { code: entries[0].studentNumber });
+    const me = await f.call('/me', undefined, login.cookie);
+    const id = me.data.student.id;
+    await f.call('/chat', { question: '练习', code: '', task: 'free', requestId: 'clear-roster-test' }, login.cookie);
+    const request = { confirmation: 'CLEAR_IMPORTED_ROSTER', expectedIds: [id] };
+    assert.equal((await f.call('/admin/clear-roster', request)).status, 401);
+    assert.equal((await f.call('/admin/clear-roster', request, login.cookie)).status, 401);
+    assert.equal((await f.call('/admin/clear-roster', { ...request, confirmation: '' }, spare.teacher)).status, 409);
+    assert.equal((await f.call('/admin/clear-roster', { ...request, expectedIds: [] }, spare.teacher)).status, 409);
+    await f.DB.prepare("UPDATE turns SET status='pending' WHERE student=?").bind(id).run();
+    assert.equal((await f.call('/admin/clear-roster', request, spare.teacher)).status, 409);
+    await f.DB.prepare("UPDATE turns SET status='completed' WHERE student=?").bind(id).run();
+    const cleared = await f.call('/admin/clear-roster', request, spare.teacher);
+    assert.equal(cleared.status, 200);
+    assert.equal(cleared.data.removed, 1);
+    assert.equal((await f.call('/me', undefined, login.cookie)).status, 401);
+    assert.equal((await f.call('/login', { code: entries[0].studentNumber })).status, 401);
+    assert.equal((await f.call('/me', undefined, spare.cookie)).status, 200);
+    assert.equal((await f.DB.prepare('SELECT COUNT(*) AS count FROM turns WHERE student=?').bind(id).first()).count, 0);
+    assert.equal((await f.call('/admin/students', undefined, spare.teacher)).data.students.length, 1);
+    assert.equal((await f.call('/admin/clear-roster', { ...request, expectedIds: [] }, spare.teacher)).data.removed, 0);
+  } finally { f.DB.close(); }
+});
 async function participant(f, group = 'A') {
   const teacher = await f.call('/login', { kind: 'admin', password });
   const created = await f.call('/admin/students', { group, count: 1 }, teacher.cookie);
