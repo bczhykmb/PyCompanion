@@ -1,0 +1,11 @@
+[Unit]
+Description=Snapshot PyCompanion SQLite data
+
+[Service]
+Type=oneshot
+User=pycompanion
+Group=pycompanion
+WorkingDirectory=/opt/pycompanion
+EnvironmentFile=/etc/pycompanion/production.env
+ExecStart=/usr/bin/node /opt/pycompanion/deploy/backup.mjs
+UMask=0077

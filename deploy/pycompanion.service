@@ -1,0 +1,26 @@
+[Unit]
+Description=PyCompanion classroom platform
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pycompanion
+Group=pycompanion
+WorkingDirectory=/opt/pycompanion
+Environment=NODE_ENV=production
+EnvironmentFile=/etc/pycompanion/production.env
+ExecStart=/usr/bin/node /opt/pycompanion/deploy/server.mjs
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=75
+UMask=0077
+StateDirectory=pycompanion
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/pycompanion
+
+[Install]
+WantedBy=multi-user.target
