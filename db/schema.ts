@@ -17,9 +17,16 @@ export const turns = sqliteTable('turns', {
   code: text('code').notNull(), task: text('task').notNull(), answer: text('answer'),
   status: text('status').notNull(), error: text('error'), mode: text('mode').notNull(),
   created: integer('created').notNull(), completed: integer('completed'),
+  promptSnapshot: text('prompt_snapshot'),
 }, t => [uniqueIndex('turn_request').on(t.student, t.requestId), index('turn_student_time').on(t.student, t.created),
   index('turn_student_task_time').on(t.student, t.task, t.created),
   uniqueIndex('turn_pending').on(t.student).where(sql`${t.status} = 'pending'`)]);
 export const limits = sqliteTable('limits', {
   key: text('key').primaryKey(), count: integer('count').notNull(), expires: integer('expires').notNull(),
+});
+export const promptSettings = sqliteTable('prompt_settings', {
+  group: text('group_id').primaryKey(), prompt: text('prompt').notNull(), revision: text('revision').notNull(), updated: integer('updated').notNull(),
+});
+export const promptRevisions = sqliteTable('prompt_revisions', {
+  revision: text('revision').primaryKey(), group: text('group_id').notNull(), prompt: text('prompt').notNull(), created: integer('created').notNull(),
 });

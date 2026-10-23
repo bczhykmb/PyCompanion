@@ -9,6 +9,21 @@
 .student-avatar{background:#e5ebf3;color:#435d7d;border:1px solid #cbd5e3}
 .student-avatar svg{width:21px;height:21px}
 .chat-tools{display:flex;align-items:center;gap:8px;flex:none}
+.prompt-editor{padding:20px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.prompt-editor>summary{cursor:pointer;font-size:18px;font-weight:600}
+.prompt-editor-body{padding-top:16px;min-width:0}
+.prompt-tabs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px}
+.prompt-tabs button{font-size:13px;min-height:36px}
+.prompt-tabs button[aria-selected=true]{background:var(--green);color:white;border-color:var(--green)}
+.prompt-form h2{font-size:17px;margin:0 0 8px}
+.prompt-form select{margin-bottom:14px;max-width:100%}
+.prompt-form textarea{height:400px;min-height:220px;max-height:900px;resize:vertical;line-height:1.75;font-size:13px;white-space:pre-wrap}
+.prompt-actions{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:12px}
+.prompt-actions .check{margin-right:auto}
+.prompt-scope{font-size:12px;margin-top:10px}
+.completion-rules{margin-top:14px}
+.completion-rules summary{cursor:pointer;font-size:13px}
+.completion-rules pre{white-space:pre-wrap;overflow-wrap:anywhere;font-family:inherit;font-size:13px;line-height:1.75;background:#eef2f4;padding:12px}
 .roster-import{padding:20px 0;border-bottom:1px solid var(--line);display:flex;flex-direction:column;align-items:flex-start;gap:12px}
 .roster-import h2{font-size:18px;margin:0}
 .roster-import input{max-width:100%;min-width:0}

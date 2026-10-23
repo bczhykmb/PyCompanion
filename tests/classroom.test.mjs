@@ -321,6 +321,57 @@ test('spare codes are teacher-only, can be reissued without losing history, and 
   } finally { f.DB.close(); }
 });
 
+test('teacher prompt edits support future-only, existing accounts, version conflicts and private per-turn snapshots', async () => {
+  const f = fixture();
+  f.env.MODEL_MODE = 'live'; f.env.MODEL_API_KEY = 'fixture-only-key';
+  const originalFetch = globalThis.fetch; let payload;
+  globalThis.fetch = async (url, options) => { payload = JSON.parse(options.body); return Response.json({ choices: [{ message: { content: 'edited-answer' } }] }); };
+  try {
+    const a = await participant(f, 'A'), b = await participant(f, 'B');
+    assert.equal((await f.call('/admin/prompts')).status, 401);
+    assert.equal((await f.call('/admin/prompts', undefined, a.cookie)).status, 401);
+    const settings = (await f.call('/admin/prompts', undefined, a.teacher)).data;
+    assert.equal(settings.groups.length, 4);
+    assert.equal(settings.completionPrompt, COMPLETION_PROMPT);
+    const initial = settings.groups.find(g => g.group_id === 'A');
+    const prompt = makePrompt('A') + '\nCUSTOM_RULE_ONE';
+    const change = { group: 'A', prompt, expectedRevision: initial.revision, applyExisting: false };
+    assert.equal((await f.call('/admin/prompts', change, a.cookie)).status, 401);
+    assert.equal((await f.call('/admin/prompts', { ...change, prompt: '' }, a.teacher)).status, 400);
+    const saved = await f.call('/admin/prompts', change, a.teacher);
+    assert.equal(saved.status, 200); assert.equal(saved.data.affected, 0);
+    const configOf = async id => JSON.parse((await f.DB.prepare('SELECT config FROM students WHERE id=?').bind(id).first()).config);
+    assert.equal((await configOf(a.student.id)).prompt, makePrompt('A'));
+    const created = await f.call('/admin/students', { group: 'A', count: 1 }, a.teacher);
+    assert.equal((await configOf(created.data.students[0].id)).prompt, prompt);
+    await f.call('/admin/import', { students: [{ studentNumber: '209900005001', className: '计网2532' }] }, a.teacher);
+    const imported = await f.DB.prepare('SELECT id FROM students WHERE student_number IS NOT NULL').first();
+    assert.equal((await configOf(imported.id)).prompt, prompt);
+    assert.equal((await f.call('/admin/prompts', change, a.teacher)).status, 409);
+    const prompt2 = makePrompt('A') + '\nCUSTOM_RULE_TWO';
+    const updated = await f.call('/admin/prompts', { ...change, prompt: prompt2, expectedRevision: saved.data.revision, applyExisting: true }, a.teacher);
+    assert.equal(updated.data.affected, 3);
+    assert.equal((await configOf(a.student.id)).prompt, prompt2);
+    assert.equal((await configOf(b.student.id)).prompt, makePrompt('B'));
+    assert.equal((await configOf(a.student.id)).mode, 'live');
+    const question = { question: 'test', task: 'intro', requestId: 'edited-prompt-test' };
+    const reply = await f.call('/chat', question, a.cookie);
+    assert.equal(reply.data.turn.status, 'completed');
+    assert.equal(payload.messages[0].content, prompt2 + '\n\n' + COMPLETION_PROMPT);
+    assert.equal(reply.data.turn.prompt_snapshot, undefined);
+    assert.equal((await f.call('/chat', question, a.cookie)).data.turn.prompt_snapshot, undefined);
+    const exported = (await f.call('/admin/export', undefined, a.teacher)).data;
+    assert.equal(exported.turns[0].prompt_snapshot, payload.messages[0].content);
+    assert.equal(exported.promptSettings.length, 1);
+    assert.ok(exported.promptRevisions.length >= 3);
+    assert.ok(!JSON.stringify((await f.call('/me', undefined, a.cookie)).data).includes('CUSTOM_RULE_TWO'));
+    const restored = await f.call('/admin/prompts', { ...change, prompt: makePrompt('A'), expectedRevision: updated.data.revision, applyExisting: true }, a.teacher);
+    assert.equal(restored.status, 200);
+    assert.equal((await configOf(a.student.id)).prompt, makePrompt('A'));
+    assert.equal((await f.DB.prepare('SELECT COUNT(*) AS count FROM turns').first()).count, 1);
+  } finally { globalThis.fetch = originalFetch; f.DB.close(); }
+});
+
 test('invalid values, oversized requests and expired sessions are rejected', async () => {
   const f = fixture(), a = await participant(f);
   assert.equal((await f.call('/chat', { question:'x'.repeat(5000), requestId:'oversized', task:'free' }, a.cookie)).status,400);
