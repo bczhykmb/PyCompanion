@@ -17,6 +17,7 @@ export const turns = sqliteTable('turns', {
   status: text('status').notNull(), error: text('error'), mode: text('mode').notNull(),
   created: integer('created').notNull(), completed: integer('completed'),
 }, t => [uniqueIndex('turn_request').on(t.student, t.requestId), index('turn_student_time').on(t.student, t.created),
+  index('turn_student_task_time').on(t.student, t.task, t.created),
   uniqueIndex('turn_pending').on(t.student).where(sql`${t.status} = 'pending'`)]);
 export const limits = sqliteTable('limits', {
   key: text('key').primaryKey(), count: integer('count').notNull(), expires: integer('expires').notNull(),

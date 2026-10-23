@@ -256,6 +256,33 @@ test('all live groups retain identity, isolated history and equal model settings
   } finally { globalThis.fetch = savedFetch; f.DB.close(); }
 });
 
+test('model conversation history stays inside the current unit and student', async () => {
+  const f = fixture();
+  f.env.MODEL_MODE = 'live'; f.env.MODEL_API_KEY = 'fixture-only-key';
+  const originalFetch = globalThis.fetch;
+  const captured = [];
+  globalThis.fetch = async (url, options) => {
+    captured.push(JSON.parse(options.body).messages);
+    return Response.json({ choices: [{ message: { content: `response-${captured.length}` } }] });
+  };
+  try {
+    const a = await participant(f), b = await participant(f);
+    for (const [index, task] of ['intro', 'variables', 'intro', 'free', 'variables'].entries()) {
+      const result = await f.call('/chat', { question: `question-${index}`, task, requestId: `unit-request-${index}` }, a.cookie);
+      assert.equal(result.data.turn.status, 'completed');
+    }
+    assert.deepEqual(captured.map(m => m.length), [2, 2, 4, 2, 4]);
+    assert.equal(captured[2][1].content, 'question-0');
+    assert.equal(captured[2][2].content, 'response-1');
+    assert.equal(captured[4][1].content, 'question-1');
+    assert.equal(captured[4][2].content, 'response-2');
+    await f.call('/chat', { question: 'another-student', task: 'intro', requestId: 'other-unit-request' }, b.cookie);
+    assert.equal(captured.at(-1).length, 2);
+    const records = (await f.call('/me', undefined, a.cookie)).data.turns;
+    assert.equal(records.length, 5, 'Switching units must not delete stored records');
+  } finally { globalThis.fetch = originalFetch; f.DB.close(); }
+});
+
 test('invalid values, oversized requests and expired sessions are rejected', async () => {
   const f = fixture(), a = await participant(f);
   assert.equal((await f.call('/chat', { question:'x'.repeat(5000), requestId:'oversized', task:'free' }, a.cookie)).status,400);
