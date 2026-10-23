@@ -61,6 +61,61 @@ test('beginner units separate required checks from optional extensions', () => {
 });
 
 const password = 'Test12345';
+test('student-number roster fixes class groups and preserves existing accounts on repeated imports', async () => {
+  const f = fixture();
+  try {
+    const teacher = await f.call('/login', { kind: 'admin', password });
+    const students = [
+      { studentNumber: '209900000001', className: '计网2541', group: 'A', name: 'discarded' },
+      { studentNumber: '209900000002', className: '计网2542' },
+      { studentNumber: '209900000003', className: '计网2543' },
+      { studentNumber: '209900000004', className: '计网25651' },
+    ];
+    assert.equal((await f.call('/admin/import', { students })).status, 401);
+    const imported = await f.call('/admin/import', { students }, teacher.cookie);
+    assert.equal(imported.status, 201);
+    assert.deepEqual(imported.data.counts, { A: 1, B: 1, C: 1, D: 1 });
+    const before = await f.DB.prepare('SELECT * FROM students ORDER BY student_number').all();
+    assert.deepEqual(before.results.map(s => s.group_id), ['D', 'C', 'B', 'A']);
+    for (const [i, entry] of students.entries()) {
+      const login = await f.call('/login', { code: entry.studentNumber, group: 'B' });
+      assert.equal(login.status, 200);
+      const me = await f.call('/me', undefined, login.cookie);
+      assert.equal(me.data.student.group, ['D', 'C', 'B', 'A'][i]);
+      assert.equal(me.data.student.student_number, undefined);
+      assert.ok(!JSON.stringify(me.data).includes(entry.studentNumber));
+    }
+    f.env.MODEL_MODE = 'live';
+    f.env.MODEL_API_KEY = 'test-only-key';
+    const repeat = await f.call('/admin/import', { students }, teacher.cookie);
+    assert.equal(repeat.status, 200);
+    assert.equal(repeat.data.skipped, 4);
+    assert.deepEqual((await f.DB.prepare('SELECT * FROM students ORDER BY student_number').all()).results, before.results);
+    const listed = await f.call('/admin/students', undefined, teacher.cookie);
+    assert.equal(listed.data.students.filter(s => s.student_number).length, 4);
+    assert.equal((await f.call('/login', { code: '209900000099' })).status, 401);
+    const p = await participant(f);
+    assert.equal((await f.call('/me', undefined, p.cookie)).status, 200);
+  } finally { f.DB.close(); }
+});
+
+test('roster validation and conflicting imports never partially change the roster', async () => {
+  const f = fixture();
+  try {
+    const teacher = await f.call('/login', { kind: 'admin', password });
+    const a = { studentNumber: '209900001001', className: '计网2541' };
+    const b = { studentNumber: '209900001002', className: '计网2542' };
+    for (const students of [[a, a], [{ ...a, className: '其他班' }], [{ ...a, studentNumber: 209900001001 }], []]) {
+      assert.equal((await f.call('/admin/import', { students }, teacher.cookie)).status, 400);
+    }
+    assert.equal((await f.call('/admin/import', { students: [a] }, teacher.cookie)).status, 201);
+    const conflict = await f.call('/admin/import', { students: [b, { ...a, className: '计网2543' }] }, teacher.cookie);
+    assert.equal(conflict.status, 409);
+    assert.equal((await f.DB.prepare('SELECT COUNT(*) AS count FROM students').first()).count, 1);
+    await f.DB.prepare('UPDATE students SET student_number=NULL,class_name=NULL WHERE student_number=?').bind(a.studentNumber).run();
+    assert.equal((await f.call('/admin/import', { students: [a] }, teacher.cookie)).status, 409);
+  } finally { f.DB.close(); }
+});
 function fixture() {
   const DB = openLocalDatabase(), env = { DB, ADMIN_PASSWORD: password, MODEL_MODE: 'demo' };
   async function call(path, data, cookie, extra = {}) {

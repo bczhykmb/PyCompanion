@@ -1,5 +1,6 @@
 import { createIcons, BookOpen, MessageSquare, Code2, Download, LogOut, Send, Copy, RefreshCw, Users, ShieldCheck, Plus, FileCode2, Play, Square, Trash2, PanelLeftClose, PanelLeftOpen, CircleCheck, GraduationCap } from 'lucide';
 import { TASKS, GROUPS } from '../lib/experiment.mjs';
+import { CLASS_GROUPS, validateRoster } from '../lib/roster.mjs';
 import { mountRunner } from './runner.mjs';
 const icons = { BookOpen, MessageSquare, Code2, Download, LogOut, Send, Copy, RefreshCw, Users, ShieldCheck, Plus, FileCode2, Play, Square, Trash2, PanelLeftClose, PanelLeftOpen, CircleCheck, GraduationCap };
 const root = document.querySelector('#app');
@@ -27,7 +28,7 @@ function header(actions = '') { return `<header class="topbar"><a class="brand" 
 function entry(message = '') {
   runner?.dispose(); runner = null;
   clearInterval(polling); state.student = null;
-  root.innerHTML = `<div class="login-page">${header(adminPage ? '<a class="teacher-link" href="/">学生入口</a>' : '<a class="teacher-link" href="/manage">教师管理</a>')}${banner()}<main class="entry"><img class="logo" src="/favicon.svg" alt=""><h1>${adminPage ? '教师管理' : '进入学习实验室'}</h1><p class="muted">${adminPage ? '请输入教师管理密码。' : '请输入教师发给你的个人学习码。'}</p><form id="login"><label for="credential">${adminPage ? '管理密码' : '个人学习码'}</label><input id="credential" name="credential" type="${adminPage ? 'password' : 'text'}" autocomplete="${adminPage ? 'current-password' : 'off'}" maxlength="${adminPage ? 200 : 80}" placeholder="${adminPage ? '教师管理密码' : 'XXXX-XXXX-XXXX-XXXX'}" required ${adminPage ? '' : 'autocapitalize="characters" spellcheck="false"'}><p class="error" id="form-error">${esc(message)}</p><button class="primary" id="login-button" type="submit">${ico(adminPage ? 'shield-check' : 'book-open')}${adminPage ? '登录管理' : '进入学习'}</button></form><p class="consent muted">${adminPage ? '个人学习码仅在生成时显示，请妥善保管。' : '对话与提交的代码将按匿名编号保存。请勿填写姓名、学号或其他个人信息。演示体验不替代正式研究的知情同意。'}</p><div class="foot muted">${adminPage ? 'PyCompanion · 四组教学实验' : 'Python 基础 · 学习与编程练习'}</div></main></div>`;
+  root.innerHTML = `<div class="login-page">${header(adminPage ? '<a class="teacher-link" href="/">学生入口</a>' : '<a class="teacher-link" href="/manage">教师管理</a>')}${banner()}<main class="entry"><img class="logo" src="/favicon.svg" alt=""><h1>${adminPage ? '教师管理' : '进入学习实验室'}</h1><p class="muted">${adminPage ? '请输入教师管理密码。' : '请输入自己的完整学号。'}</p><form id="login"><label for="credential">${adminPage ? '管理密码' : '学号'}</label><input id="credential" name="credential" type="${adminPage ? 'password' : 'text'}" autocomplete="${adminPage ? 'current-password' : 'off'}" maxlength="${adminPage ? 200 : 80}" placeholder="${adminPage ? '教师管理密码' : '完整学号'}" required ${adminPage ? '' : 'spellcheck="false"'}><p class="error" id="form-error">${esc(message)}</p><button class="primary" id="login-button" type="submit">${ico(adminPage ? 'shield-check' : 'book-open')}${adminPage ? '登录管理' : '进入学习'}</button></form><p class="consent muted">${adminPage ? '学生名单仅限教师管理，请妥善保管。' : '学号用于匹配个人学习记录；请勿在对话和代码中填写姓名、学号或其他个人信息。演示体验不替代正式研究的知情同意。'}</p><div class="foot muted">${adminPage ? 'PyCompanion · 四组教学实验' : 'Python 基础 · 学习与编程练习'}</div></main></div>`;
   iconify();
   $('login').onsubmit = async e => { e.preventDefault(); const button = $('login-button'); button.disabled = true; error(''); try { await api('/login', adminPage ? { kind: 'admin', password: $('credential').value } : { code: $('credential').value }); await load(); } catch (e) { error(e.message); } finally { if (button.isConnected) button.disabled = false; } };
 }
@@ -153,8 +154,47 @@ function studentView() {
 async function refresh() { const data = await api('/me'); state.student = data.student; state.turns = data.turns; paintMessages(); }
 function csvField(s) { const value = String(s ?? ''); return '"' + (/^[=+@\-\t\r]/.test(value) ? "'" : '') + value.replace(/"/g, '""') + '"'; }
 function exportCodes() { download('pycompanion-learning-codes.csv', '\uFEFF' + [['研究编号','组别','个人学习码','模式'], ...state.generated.map(s => [s.id,s.group,s.code,s.mode])].map(r => r.map(csvField).join(',')).join('\r\n'), 'text/csv;charset=utf-8'); }
+function mountRosterImport() {
+  document.querySelector('.manage-head .muted').textContent = '按班级固定组别 · 编号关联记录';
+  const form = $('create');
+  const advanced = document.createElement('details');
+  advanced.className = 'legacy-codes';
+  advanced.innerHTML = '<summary>备用学习码</summary>';
+  form.before(advanced);
+  advanced.append(form);
+  advanced.insertAdjacentHTML('beforebegin', `<form id="import-roster" class="roster-import"><h2>学号名单</h2><div class="class-groups">${Object.entries(CLASS_GROUPS).map(([name, group]) => `<span class="badge">${esc(name)} · ${group}组</span>`).join('')}</div><label for="roster-file">名单文件</label><input id="roster-file" type="file" accept=".json,application/json" required><p id="roster-preview" class="muted" role="status"></p><button id="import-button" class="primary" type="submit" disabled>${ico('plus')}导入学号名单</button></form>`);
+  const table = document.querySelector('.manage > .table-wrap table');
+  table.innerHTML = `<thead><tr><th>学号</th><th>班级</th><th>研究编号</th><th>实验条件</th><th>模式</th><th>提问次数</th><th>最近提问</th></tr></thead><tbody>${state.roster.map(s => `<tr><td class="record-code">${esc(s.student_number || '备用学习码')}</td><td>${esc(s.class_name || '—')}</td><td class="record-code">${esc(s.id)}</td><td>${esc(s.group_id)} · ${esc(GROUPS[s.group_id].role)} · ${esc(GROUPS[s.group_id].feedback)}</td><td>${s.mode === 'demo' ? '演示' : '真实模型'}</td><td>${s.turns}</td><td>${s.lastActive ? esc(date(s.lastActive)) : '尚未提问'}</td></tr>`).join('') || '<tr><td colspan="7" class="empty">尚未导入学生名单。</td></tr>'}</tbody>`;
+  let entries;
+  $('roster-file').onchange = async () => {
+    entries = undefined;
+    $('import-button').disabled = true;
+    error('');
+    try {
+      const file = $('roster-file').files[0];
+      if (!file) { $('roster-preview').textContent = ''; return; }
+      if (file.size > 50000) throw new Error('名单文件不能超过50KB。');
+      const parsed = JSON.parse((await file.text()).replace(/^\uFEFF/, ''));
+      entries = validateRoster(Array.isArray(parsed) ? parsed : parsed.students);
+      const counts = Object.fromEntries(Object.keys(GROUPS).map(g => [g, entries.filter(e => e.group === g).length]));
+      $('roster-preview').textContent = `共${entries.length}人 · ${Object.entries(counts).map(([g, n]) => `${g}组${n}人`).join(' · ')}`;
+      $('import-button').disabled = false;
+    } catch (e) { error(e.message); $('roster-preview').textContent = ''; }
+  };
+  $('import-roster').onsubmit = async e => {
+    e.preventDefault();
+    if (!entries) return;
+    const button = $('import-button'); button.disabled = true; error('');
+    try {
+      const result = await api('/admin/import', { students: entries.map(({ studentNumber, className }) => ({ studentNumber, className })) });
+      state.roster = (await api('/admin/students')).students;
+      adminView(); toast(`导入${result.imported}人，已有${result.skipped}人；${result.mode === 'live' ? '真实模型' : '演示'}模式`);
+    } catch (err) { error(err.message); if (button.isConnected) button.disabled = false; }
+  };
+}
 function adminView() {
   root.innerHTML = `${header(`<a class="teacher-link" href="/">学生入口</a><button class="icon" id="logout" title="退出管理" aria-label="退出管理">${ico('log-out')}</button>`)}${banner()}<main class="manage"><div class="manage-head"><div><h1>实验参与者 <span class="count">${state.roster.length} 人</span></h1><span class="muted">组别固定 · 匿名记录</span></div><div class="top-actions"><button id="copy-link">${ico('copy')}复制学生网址</button><button id="export-all">${ico('download')}导出全部记录</button></div></div><div class="status-line"><span class="badge">${state.health.mode === 'live' ? '真实模型模式' : '演示模式'}</span><span class="badge">服务器集中保存</span><span class="badge">四组教学实验</span></div><form id="create" class="create-form"><div class="field"><label for="group">指定组别</label><select id="group">${Object.entries(GROUPS).map(([id,g]) => `<option value="${id}">${id}组 · ${g.role} · ${g.feedback}</option>`).join('')}</select></div><div class="field"><label for="count">生成人数</label><input type="number" id="count" min="1" max="80" value="1" required></div><button type="submit" class="primary" id="create-button">${ico('plus')}生成个人学习码</button><small>分组方法由研究者确定，系统不会自动随机分组。</small></form><p id="form-error" class="error"></p>${state.generated.length ? `<section class="generated"><h2>新生成的学习码</h2><p>请先下载并保存。个人学习码只显示一次；不要公开发布或混用。</p><button id="download-codes">${ico('download')}下载学习码表</button><div class="table-wrap"><table><thead><tr><th>研究编号</th><th>组别</th><th>个人学习码</th></tr></thead><tbody>${state.generated.map(s => `<tr><td class="record-code">${esc(s.id)}</td><td>${s.group}</td><td class="record-code">${esc(s.code)}</td></tr>`).join('')}</tbody></table></div></section>` : ''}<div class="table-wrap"><table><thead><tr><th>研究编号</th><th>实验条件</th><th>模式</th><th>提问次数</th><th>最近提问</th></tr></thead><tbody>${state.roster.map(s => `<tr><td class="record-code">${esc(s.id)}</td><td>${esc(s.group_id)} · ${esc(GROUPS[s.group_id].role)} · ${esc(GROUPS[s.group_id].feedback)}</td><td>${s.mode === 'demo' ? '演示' : '真实模型'}</td><td>${s.turns}</td><td>${s.lastActive ? esc(date(s.lastActive)) : '尚未提问'}</td></tr>`).join('') || '<tr><td colspan="5" class="empty">还没有参与者。先生成个人学习码。</td></tr>'}</tbody></table></div></main>`;
+  mountRosterImport();
   iconify(); $('logout').onclick = logout;
   $('copy-link').onclick = () => navigator.clipboard.writeText(location.origin + '/').then(() => toast('学生网址已复制')).catch(() => toast('当前浏览器不允许复制，请复制地址栏中的网站首页地址'));
   $('export-all').onclick = async () => { try { const data = await api('/admin/export'); download('pycompanion-records.json', JSON.stringify(data, null, 2)); } catch (e) { error(e.message); } };
