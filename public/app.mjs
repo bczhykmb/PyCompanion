@@ -188,6 +188,8 @@ async function refresh() { const data = await api('/me'); state.student = data.s
 function csvField(s) { const value = String(s ?? ''); return '"' + (/^[=+@\-\t\r]/.test(value) ? "'" : '') + value.replace(/"/g, '""') + '"'; }
 function exportCodes() { download('pycompanion-learning-codes.csv', '\uFEFF' + [['研究编号','组别','个人学习码','模式'], ...state.generated.map(s => [s.id,s.group,s.code,s.mode])].map(r => r.map(csvField).join(',')).join('\r\n'), 'text/csv;charset=utf-8'); }
 function mountRosterImport() {
+  const generatedNotice = document.querySelector('.generated p');
+  if (generatedNotice) generatedNotice.textContent = '备用学习码可在教师名单中查看，请勿公开发布或混用。';
   document.querySelector('.manage-head .muted').textContent = '按班级固定组别 · 编号关联记录';
   const form = $('create');
   const advanced = document.createElement('details');
@@ -212,7 +214,15 @@ function mountRosterImport() {
       } catch (e) { error(e.message); if (button.isConnected) button.disabled = false; }
     };
   }
-  table.innerHTML = `<thead><tr><th>学号</th><th>班级</th><th>研究编号</th><th>实验条件</th><th>模式</th><th>提问次数</th><th>最近提问</th></tr></thead><tbody>${state.roster.map(s => `<tr><td class="record-code">${esc(s.student_number || '备用学习码')}</td><td>${esc(s.class_name || '—')}</td><td class="record-code">${esc(s.id)}</td><td>${esc(s.group_id)} · ${esc(GROUPS[s.group_id].role)} · ${esc(GROUPS[s.group_id].feedback)}</td><td>${s.mode === 'demo' ? '演示' : '真实模型'}</td><td>${s.turns}</td><td>${s.lastActive ? esc(date(s.lastActive)) : '尚未提问'}</td></tr>`).join('') || '<tr><td colspan="7" class="empty">尚未导入学生名单。</td></tr>'}</tbody>`;
+  table.innerHTML = `<thead><tr><th>学号 / 备用学习码</th><th>班级</th><th>研究编号</th><th>实验条件</th><th>模式</th><th>提问次数</th><th>最近提问</th></tr></thead><tbody>${state.roster.map(s => `<tr><td class="record-code">${s.student_number ? esc(s.student_number) : s.spare_code ? `<strong>${esc(s.spare_code)}</strong>` : `<button type="button" data-reissue="${esc(s.id)}" title="更新登录码以显示；保留历史记录">生成可显示的备用码</button>`}</td><td>${esc(s.class_name || '—')}</td><td class="record-code">${esc(s.id)}</td><td>${esc(s.group_id)} · ${esc(GROUPS[s.group_id].role)} · ${esc(GROUPS[s.group_id].feedback)}</td><td>${s.mode === 'demo' ? '演示' : '真实模型'}</td><td>${s.turns}</td><td>${s.lastActive ? esc(date(s.lastActive)) : '尚未提问'}</td></tr>`).join('') || '<tr><td colspan="7" class="empty">尚未导入学生名单。</td></tr>'}</tbody>`;
+  table.querySelectorAll('[data-reissue]').forEach(button => button.onclick = async () => {
+    if (!confirm('将更新此账号的备用学习码，旧码失效，历史记录保留。是否继续？')) return;
+    button.disabled = true; error('');
+    try {
+      await api('/admin/spare-code', { id: button.dataset.reissue, action: 'reissue' });
+      state.roster = (await api('/admin/students')).students; adminView(); toast('备用学习码已更新');
+    } catch (e) { error(e.message); if (button.isConnected) button.disabled = false; }
+  });
   let entries;
   $('roster-file').onchange = async () => {
     entries = undefined;

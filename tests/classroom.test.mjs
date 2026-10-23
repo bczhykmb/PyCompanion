@@ -283,6 +283,44 @@ test('model conversation history stays inside the current unit and student', asy
   } finally { globalThis.fetch = originalFetch; f.DB.close(); }
 });
 
+test('spare codes are teacher-only, can be reissued without losing history, and demo deletion is scoped', async () => {
+  const f = fixture();
+  try {
+    const demo = await participant(f, 'A');
+    f.env.MODEL_MODE = 'live'; f.env.MODEL_API_KEY = 'fixture-only-key';
+    const live = await participant(f, 'D');
+    const before = await f.DB.prepare('SELECT config FROM students WHERE id=?').bind(live.student.id).first();
+    await f.DB.prepare("INSERT INTO turns (id,student,request_id,question,code,task,status,mode,created) VALUES (?,?,?,?,?,?,'completed','live',?)").bind('spare-turn', live.student.id, 'spare-test', 'hello', '', 'intro', 1).run();
+    const roster = await f.call('/admin/students', undefined, live.teacher);
+    assert.equal(roster.data.students.find(s => s.id === live.student.id).spare_code, live.student.code);
+    assert.equal((await f.call('/admin/students', undefined, live.cookie)).status, 401);
+    const input = { id: live.student.id, action: 'reissue' };
+    assert.equal((await f.call('/admin/spare-code', input)).status, 401);
+    assert.equal((await f.call('/admin/spare-code', input, live.cookie)).status, 401);
+    assert.equal((await f.call('/admin/spare-code', { ...input, action: 'delete-demo' }, live.teacher)).status, 400);
+    const updated = await f.call('/admin/spare-code', input, live.teacher);
+    assert.equal(updated.status, 200);
+    assert.notEqual(updated.data.code, live.student.code);
+    assert.equal((await f.call('/login', { code: live.student.code })).status, 401);
+    assert.equal((await f.call('/me', undefined, live.cookie)).status, 401);
+    const login = await f.call('/login', { code: updated.data.code });
+    const me = await f.call('/me', undefined, login.cookie);
+    assert.equal(me.data.turns.length, 1);
+    assert.ok(!JSON.stringify(me.data).includes(updated.data.code));
+    assert.deepEqual(await f.DB.prepare('SELECT config FROM students WHERE id=?').bind(live.student.id).first(), before);
+    assert.ok(!JSON.stringify((await f.call('/admin/export', undefined, live.teacher)).data).includes(updated.data.code));
+    await f.call('/admin/import', { students: [{ studentNumber: '209900004001', className: '计网2532' }] }, live.teacher);
+    const imported = await f.DB.prepare('SELECT id FROM students WHERE student_number IS NOT NULL').first();
+    assert.equal((await f.call('/admin/spare-code', { id: imported.id, action: 'reissue' }, live.teacher)).status, 400);
+    const list = (await f.call('/admin/students', undefined, live.teacher)).data.students;
+    assert.equal(list.at(-1).id, imported.id);
+    const removed = await f.call('/admin/spare-code', { id: demo.student.id, action: 'delete-demo' }, live.teacher);
+    assert.equal(removed.status, 200);
+    assert.equal((await f.call('/login', { code: demo.student.code })).status, 401);
+    assert.equal((await f.call('/me', undefined, login.cookie)).status, 200);
+  } finally { f.DB.close(); }
+});
+
 test('invalid values, oversized requests and expired sessions are rejected', async () => {
   const f = fixture(), a = await participant(f);
   assert.equal((await f.call('/chat', { question:'x'.repeat(5000), requestId:'oversized', task:'free' }, a.cookie)).status,400);
