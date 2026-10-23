@@ -1,9 +1,10 @@
-import { createIcons, BookOpen, MessageSquare, Code2, Download, LogOut, Send, Copy, RefreshCw, Users, ShieldCheck, Plus, FileCode2, Play, Square, Trash2, PanelLeftClose, PanelLeftOpen, CircleCheck, GraduationCap } from 'lucide';
+import { createIcons, BookOpen, MessageSquare, Code2, Download, LogOut, Send, Copy, RefreshCw, Users, ShieldCheck, Plus, FileCode2, Play, Square, Trash2, PanelLeftClose, PanelLeftOpen, CircleCheck, GraduationCap, Save, RotateCcw } from 'lucide';
 import { TASKS, GROUPS } from '../lib/experiment.mjs';
 import { CLASS_GROUPS, validateRoster } from '../lib/roster.mjs';
 import { mountRunner } from './runner.mjs';
 import { unitTurns, unitTranscript } from './unit-records.mjs';
-const icons = { BookOpen, MessageSquare, Code2, Download, LogOut, Send, Copy, RefreshCw, Users, ShieldCheck, Plus, FileCode2, Play, Square, Trash2, PanelLeftClose, PanelLeftOpen, CircleCheck, GraduationCap };
+import { mountPromptEditor } from './prompt-editor.mjs';
+const icons = { BookOpen, MessageSquare, Code2, Download, LogOut, Send, Copy, RefreshCw, Users, ShieldCheck, Plus, FileCode2, Play, Square, Trash2, PanelLeftClose, PanelLeftOpen, CircleCheck, GraduationCap, Save, RotateCcw };
 const root = document.querySelector('#app');
 const adminPage = location.pathname === '/manage';
 const state = { student: null, turns: [], health: {}, task: 'free', busy: false, mobileTab: 'chat', codes: {}, drafts: {}, generated: [], roster: [] };
@@ -253,6 +254,7 @@ function mountRosterImport() {
 function adminView() {
   root.innerHTML = `${header(`<a class="teacher-link" href="/">学生入口</a><button class="icon" id="logout" title="退出管理" aria-label="退出管理">${ico('log-out')}</button>`)}${banner()}<main class="manage"><div class="manage-head"><div><h1>实验参与者 <span class="count">${state.roster.length} 人</span></h1><span class="muted">组别固定 · 匿名记录</span></div><div class="top-actions"><button id="copy-link">${ico('copy')}复制学生网址</button><button id="export-all">${ico('download')}导出全部记录</button></div></div><div class="status-line"><span class="badge">${state.health.mode === 'live' ? '真实模型模式' : '演示模式'}</span><span class="badge">服务器集中保存</span><span class="badge">四组教学实验</span></div><form id="create" class="create-form"><div class="field"><label for="group">指定组别</label><select id="group">${Object.entries(GROUPS).map(([id,g]) => `<option value="${id}">${id}组 · ${g.role} · ${g.feedback}</option>`).join('')}</select></div><div class="field"><label for="count">生成人数</label><input type="number" id="count" min="1" max="80" value="1" required></div><button type="submit" class="primary" id="create-button">${ico('plus')}生成个人学习码</button><small>分组方法由研究者确定，系统不会自动随机分组。</small></form><p id="form-error" class="error"></p>${state.generated.length ? `<section class="generated"><h2>新生成的学习码</h2><p>请先下载并保存。个人学习码只显示一次；不要公开发布或混用。</p><button id="download-codes">${ico('download')}下载学习码表</button><div class="table-wrap"><table><thead><tr><th>研究编号</th><th>组别</th><th>个人学习码</th></tr></thead><tbody>${state.generated.map(s => `<tr><td class="record-code">${esc(s.id)}</td><td>${s.group}</td><td class="record-code">${esc(s.code)}</td></tr>`).join('')}</tbody></table></div></section>` : ''}<div class="table-wrap"><table><thead><tr><th>研究编号</th><th>实验条件</th><th>模式</th><th>提问次数</th><th>最近提问</th></tr></thead><tbody>${state.roster.map(s => `<tr><td class="record-code">${esc(s.id)}</td><td>${esc(s.group_id)} · ${esc(GROUPS[s.group_id].role)} · ${esc(GROUPS[s.group_id].feedback)}</td><td>${s.mode === 'demo' ? '演示' : '真实模型'}</td><td>${s.turns}</td><td>${s.lastActive ? esc(date(s.lastActive)) : '尚未提问'}</td></tr>`).join('') || '<tr><td colspan="5" class="empty">还没有参与者。先生成个人学习码。</td></tr>'}</tbody></table></div></main>`;
   mountRosterImport();
+  mountPromptEditor({ before: $('import-roster'), api, icon: ico, iconify, toast });
   iconify(); $('logout').onclick = logout;
   $('copy-link').onclick = () => navigator.clipboard.writeText(location.origin + '/').then(() => toast('学生网址已复制')).catch(() => toast('当前浏览器不允许复制，请复制地址栏中的网站首页地址'));
   $('export-all').onclick = async () => { try { const data = await api('/admin/export'); download('pycompanion-records.json', JSON.stringify(data, null, 2)); } catch (e) { error(e.message); } };
@@ -270,7 +272,7 @@ async function load() {
     else { const data = await api('/me'); state.student = data.student; state.turns = data.turns; studentView(); }
   } catch (e) { entry(e.status === 401 ? '' : e.message); }
 }
-window.addEventListener('beforeunload', e => { if (state.busy || $('question')?.value.trim() || (state.student && Object.keys(state.codes).length)) { e.preventDefault(); e.returnValue = ''; } });
+window.addEventListener('beforeunload', e => { if (state.busy || $('question')?.value.trim() || (state.student && Object.keys(state.codes).length) || document.querySelector('[data-prompt-dirty="true"]')) { e.preventDefault(); e.returnValue = ''; } });
 try { state.health = await api('/health'); await load(); } catch (e) { entry(e.message); }
 if (document.modelContext?.registerTool) {
   const lifecycle = new AbortController();
