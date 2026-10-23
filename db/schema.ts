@@ -4,6 +4,7 @@ import { sql } from 'drizzle-orm';
 export const students = sqliteTable('students', {
   id: text('id').primaryKey(), codeHash: text('code_hash').notNull().unique(),
   studentNumber: text('student_number').unique(), className: text('class_name'),
+  spareCode: text('spare_code'),
   group: text('group_id').notNull(), config: text('config').notNull(), created: integer('created').notNull(),
 });
 export const sessions = sqliteTable('sessions', {
