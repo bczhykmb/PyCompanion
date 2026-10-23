@@ -2,10 +2,11 @@ import { createIcons, BookOpen, MessageSquare, Code2, Download, LogOut, Send, Co
 import { TASKS, GROUPS } from '../lib/experiment.mjs';
 import { CLASS_GROUPS, validateRoster } from '../lib/roster.mjs';
 import { mountRunner } from './runner.mjs';
+import { unitTurns, unitTranscript } from './unit-records.mjs';
 const icons = { BookOpen, MessageSquare, Code2, Download, LogOut, Send, Copy, RefreshCw, Users, ShieldCheck, Plus, FileCode2, Play, Square, Trash2, PanelLeftClose, PanelLeftOpen, CircleCheck, GraduationCap };
 const root = document.querySelector('#app');
 const adminPage = location.pathname === '/manage';
-const state = { student: null, turns: [], health: {}, task: 'free', busy: false, mobileTab: 'chat', codes: {}, generated: [], roster: [] };
+const state = { student: null, turns: [], health: {}, task: 'free', busy: false, mobileTab: 'chat', codes: {}, drafts: {}, generated: [], roster: [] };
 let toastTimer, polling, runner;
 const $ = (id) => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -34,7 +35,7 @@ function entry(message = '') {
 }
 async function logout() {
   if (state.busy) return toast('请等待当前回复完成。');
-  try { await api('/logout', {}); clearInterval(polling); state.codes = {}; state.turns = []; state.student = null; entry(); } catch (e) { error(e.message); }
+  try { await api('/logout', {}); clearInterval(polling); state.codes = {}; state.drafts = {}; state.turns = []; state.student = null; entry(); } catch (e) { error(e.message); }
 }
 function currentCode() { return $('code')?.value ?? state.codes[state.task] ?? TASKS.find(t => t.id === state.task).code; }
 function answerContent(turn) {
@@ -47,7 +48,14 @@ function answerContent(turn) {
 function paintMessages() {
   const view = $('messages'); if (!view) return;
   const nearBottom = view.scrollHeight - view.scrollTop - view.clientHeight < 90;
-  view.innerHTML = state.turns.length ? state.turns.map(t => `<article class="turn">
+  const turns = unitTurns(state.turns, state.task);
+  const task = TASKS.find(t => t.id === state.task);
+  if ($('export-unit')) {
+    $('export-unit').disabled = !turns.length;
+    $('export-unit').title = `导出${task.title}对话记录`;
+    $('export-unit').setAttribute('aria-label', $('export-unit').title);
+  }
+  view.innerHTML = turns.length ? turns.map(t => `<article class="turn">
     <div class="message-row student-message">
       <span class="message-avatar student-avatar" role="img" aria-label="学生头像">${ico('graduation-cap')}</span>
       <div class="message-content"><div class="message-label"><span>我 · ${esc(TASKS.find(x => x.id === t.task)?.title || '自主练习')}</span><time>${esc(date(t.created))}</time></div>
@@ -112,15 +120,40 @@ function studentView() {
   portrait.innerHTML = `<img src="${character.image}" alt="${esc(character.name)}形象照片" width="160" height="160"><div><strong>${esc(character.name)}</strong></div>`;
   $('messages').before(portrait);
   document.querySelector('.agent .avatar').innerHTML = `<img src="${character.image}" alt="" width="36" height="36">`;
+  const chatTools = document.createElement('div');
+  chatTools.className = 'chat-tools';
+  $('refresh').before(chatTools);
+  chatTools.append($('refresh'));
+  chatTools.insertAdjacentHTML('beforeend', `<button class="icon" id="export-unit" type="button" title="导出当前单元对话记录" aria-label="导出当前单元对话记录">${ico('download')}</button>`);
   iconify(); paintEditor(); paintMessages();
   $('logout').onclick = logout;
   $('export-own').onclick = () => download(`pycompanion-${s.id}.json`, JSON.stringify({ student: s, turns: state.turns, exportedAt: new Date().toISOString() }, null, 2));
   $('download-code').onclick = () => download('practice.py', currentCode(), 'text/x-python;charset=utf-8');
   $('refresh').onclick = async () => { try { await refresh(); toast('记录已刷新'); } catch (e) { error(e.message); } };
+  $('export-unit').onclick = async () => {
+    const task = TASKS.find(t => t.id === state.task);
+    const button = $('export-unit'); button.disabled = true;
+    try {
+      const data = await api('/me');
+      if (state.student?.id !== s.id) return;
+      state.turns = data.turns; paintMessages();
+      download(`pycompanion-${s.id}-${task.id}-对话记录.md`, unitTranscript({ student: s, task, turns: data.turns }), 'text/markdown;charset=utf-8');
+    } catch (e) { error(e.message); }
+    finally { if (button.isConnected) button.disabled = !unitTurns(state.turns, state.task).length; }
+  };
   $('code').oninput = () => { state.codes[state.task] = currentCode(); updateLines(); runner.codeChanged(); };
   $('code').onscroll = () => { $('lines').scrollTop = $('code').scrollTop; };
   $('code').onkeydown = e => { if (e.key === 'Tab') { e.preventDefault(); const el = e.target; el.setRangeText('    ', el.selectionStart, el.selectionEnd, 'end'); el.dispatchEvent(new Event('input')); } };
-  document.querySelectorAll('[data-task]').forEach(el => el.onclick = () => { if (state.busy) return toast('请等待当前回复完成后切换任务。'); runner.beforeTaskChange(); state.codes[state.task] = currentCode(); state.task = el.dataset.task; paintEditor(); });
+  document.querySelectorAll('[data-task]').forEach(el => el.onclick = () => {
+    if (state.busy) return toast('请等待当前回复完成后切换任务。');
+    runner.beforeTaskChange(); state.codes[state.task] = currentCode();
+    state.drafts[state.task] = { question: $('question').value, attach: $('attach').checked };
+    state.task = el.dataset.task;
+    $('question').value = state.drafts[state.task]?.question || '';
+    $('attach').checked = state.drafts[state.task]?.attach || false;
+    $('save-state').textContent = '已加载当前单元记录'; error('');
+    paintEditor(); paintMessages(); $('messages').scrollTop = $('messages').scrollHeight;
+  });
   const tab = name => { state.mobileTab = name; $('panels').dataset.tab = name; $('show-chat').classList.toggle('active', name === 'chat'); $('show-code').classList.toggle('active', name === 'code'); };
   $('show-chat').onclick = () => tab('chat'); $('show-code').onclick = () => tab('code');
   $('ask-code').onclick = () => {
