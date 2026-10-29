@@ -63,8 +63,8 @@ function paintMessages() {
       <div class="question"><div class="message-body">${esc(t.question || '请查看我的代码。')}</div>${t.code ? `<details><summary>已提交的 Python 代码</summary><pre>${esc(t.code)}</pre></details>` : ''}</div></div>
     </div>
     <div class="message-row agent-message">
-      <img class="message-avatar" src="${GROUPS[state.student.group].image}" alt="${esc(state.student.name)}头像" width="32" height="32">
-      <div class="message-content"><div class="message-label"><span>${esc(state.student.name)}</span><span>${t.mode === 'demo' ? '演示回复' : 'AI 回复'}</span></div>
+      <img class="message-avatar" src="${(GROUPS[t.group_snapshot] || GROUPS[state.student.group]).image}" alt="${esc((GROUPS[t.group_snapshot] || GROUPS[state.student.group]).name)}头像" width="32" height="32">
+      <div class="message-content"><div class="message-label"><span>${esc((GROUPS[t.group_snapshot] || GROUPS[state.student.group]).name)}</span><span>${t.mode === 'demo' ? '演示回复' : 'AI 回复'}</span></div>
       <div class="answer message-body">${t.status === 'pending' ? '<span class="pending">正在回复，记录已保存…</span>' : t.status === 'failed' ? `<span class="error">${esc(t.error || '本次回复失败，请重新发送。')}</span>` : answerContent(t)}</div></div>
     </div>
   </article>`).join('') : `<div class="welcome"><strong>${esc(state.student.name)}</strong><p>你可以提出 Python 学习问题，也可以附上正在编写的代码。</p></div>`;
