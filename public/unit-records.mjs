@@ -1,3 +1,5 @@
+import { zipSync, strToU8 } from 'fflate';
+
 export function unitTurns(turns, task) {
   return turns.filter(t => t.task === task);
 }
@@ -21,4 +23,11 @@ export function unitTranscript({ student, task, turns, exportedAt = new Date().t
     lines.push('');
   }
   return lines.join('\n');
+}
+
+export function unitArchive({ student, task, code, turns, exportedAt }) {
+  return zipSync({
+    [`${task.id}.py`]: strToU8(code),
+    [`${task.id}-对话记录.md`]: strToU8(unitTranscript({ student, task, turns, exportedAt })),
+  });
 }
