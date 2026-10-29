@@ -411,6 +411,41 @@ test('class reassignment preserves IDs and records, switches group rules and rev
   } finally { globalThis.fetch = originalFetch; f.DB.close(); }
 });
 
+test('class-history reset keeps accounts and other classes while clearing turns, sessions and chat quotas', async () => {
+  const f = fixture();
+  try {
+    const spare = await participant(f, 'D');
+    const students = [{ studentNumber: '209900007001', className: '计网2541' }, { studentNumber: '209900007002', className: '计网2542' }, { studentNumber: '209900007003', className: '计网2532' }];
+    await f.call('/admin/import', { students }, spare.teacher);
+    const cookies = [];
+    for (const entry of students) {
+      const login = await f.call('/login', { code: entry.studentNumber }); cookies.push(login.cookie);
+      await f.call('/chat', { question: 'test', task: 'intro', requestId: `reset-${entry.studentNumber}` }, login.cookie);
+    }
+    await f.call('/chat', { question: 'spare', task: 'intro', requestId: 'keep-spare-history' }, spare.cookie);
+    const accounts = (await f.DB.prepare('SELECT * FROM students ORDER BY id').all()).results;
+    const ids = accounts.filter(s => ['计网2541', '计网2542'].includes(s.class_name)).map(s => s.id);
+    const body = { confirmation: 'CLEAR_2541_2542_HISTORY', expectedIds: ids };
+    assert.equal((await f.call('/admin/clear-class-history', body, cookies[0])).status, 401);
+    assert.equal((await f.call('/admin/clear-class-history', { ...body, expectedIds: [] }, spare.teacher)).status, 409);
+    await f.DB.prepare("UPDATE turns SET status='pending' WHERE student=?").bind(ids[0]).run();
+    assert.equal((await f.call('/admin/clear-class-history', body, spare.teacher)).status, 409);
+    await f.DB.prepare("UPDATE turns SET status='completed' WHERE student=?").bind(ids[0]).run();
+    const cleared = await f.call('/admin/clear-class-history', body, spare.teacher);
+    assert.deepEqual(cleared.data, { clearedStudents: 2, clearedTurns: 2 });
+    assert.deepEqual((await f.DB.prepare('SELECT * FROM students ORDER BY id').all()).results, accounts);
+    assert.equal((await f.call('/me', undefined, cookies[0])).status, 401);
+    assert.equal((await f.call('/me', undefined, cookies[1])).status, 401);
+    assert.equal((await f.call('/me', undefined, cookies[2])).data.turns.length, 1);
+    assert.equal((await f.call('/me', undefined, spare.cookie)).data.turns.length, 1);
+    for (const id of ids) assert.equal((await f.DB.prepare('SELECT COUNT(*) AS count FROM limits WHERE key LIKE ? OR key LIKE ?').bind(`chat:${id}:%`, `daily:${id}:%`).first()).count, 0);
+    for (const entry of students.slice(0, 2)) {
+      const login = await f.call('/login', { code: entry.studentNumber });
+      assert.equal((await f.call('/me', undefined, login.cookie)).data.turns.length, 0);
+    }
+  } finally { f.DB.close(); }
+});
+
 test('invalid values, oversized requests and expired sessions are rejected', async () => {
   const f = fixture(), a = await participant(f);
   assert.equal((await f.call('/chat', { question:'x'.repeat(5000), requestId:'oversized', task:'free' }, a.cookie)).status,400);
