@@ -2,12 +2,12 @@ import { createIcons, BookOpen, MessageSquare, Code2, Download, LogOut, Send, Co
 import { TASKS, GROUPS } from '../lib/experiment.mjs';
 import { CLASS_GROUPS, validateRoster } from '../lib/roster.mjs';
 import { mountRunner } from './runner.mjs';
-import { unitTurns, unitTranscript } from './unit-records.mjs';
+import { unitTurns, unitArchive } from './unit-records.mjs';
 import { mountPromptEditor } from './prompt-editor.mjs';
 const icons = { BookOpen, MessageSquare, Code2, Download, LogOut, Send, Copy, RefreshCw, Users, ShieldCheck, Plus, FileCode2, Play, Square, Trash2, PanelLeftClose, PanelLeftOpen, CircleCheck, GraduationCap, Save, RotateCcw };
 const root = document.querySelector('#app');
 const adminPage = location.pathname === '/manage';
-const state = { student: null, turns: [], health: {}, task: 'free', busy: false, mobileTab: 'chat', codes: {}, drafts: {}, generated: [], roster: [] };
+const state = { student: null, turns: [], health: {}, task: 'free', busy: false, exporting: false, mobileTab: 'chat', codes: {}, drafts: {}, generated: [], roster: [] };
 let toastTimer, polling, runner;
 const $ = (id) => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -52,8 +52,8 @@ function paintMessages() {
   const turns = unitTurns(state.turns, state.task);
   const task = TASKS.find(t => t.id === state.task);
   if ($('export-unit')) {
-    $('export-unit').disabled = !turns.length;
-    $('export-unit').title = `导出${task.title}对话记录`;
+    $('export-unit').disabled = state.exporting;
+    $('export-unit').title = `下载${task.title}代码与对话压缩包`;
     $('export-unit').setAttribute('aria-label', $('export-unit').title);
   }
   view.innerHTML = turns.length ? turns.map(t => `<article class="turn">
@@ -81,7 +81,7 @@ function paintEditor() {
 function updateLines() { $('lines').textContent = Array.from({ length: $('code').value.split('\n').length }, (_, i) => i + 1).join('\n'); $('line-count').textContent = `${$('code').value.split('\n').length} 行`; }
 function studentView() {
   const s = state.student;
-  root.innerHTML = `${header(`<span class="student-id record-code">${esc(s.id)}</span><button class="icon" id="export-own" title="下载我的记录" aria-label="下载我的记录">${ico('download')}</button><button class="icon" id="logout" title="退出学习" aria-label="退出学习">${ico('log-out')}</button>`)}${banner(s.mode)}<div class="work"><aside class="sidebar"><div><h2>学习任务</h2><nav class="task-list" aria-label="学习任务">${TASKS.map(t => `<button data-task="${t.id}">${ico('file-code-2')}<span>${t.title}</span></button>`).join('')}</nav></div><div class="student-meta">学习编号<strong>${esc(s.id)}</strong><p>Python 基础<br>任务示例 · 待教学定稿</p></div></aside><nav class="mobile-tabs" aria-label="工作区"><button id="show-chat" class="active">${ico('message-square')}学习对话</button><button id="show-code">${ico('code-2')}编程练习</button></nav><main class="panels" id="panels" data-tab="chat"><section class="coding"><div class="section-head"><h2>编程练习</h2><button class="icon" id="download-code" title="下载 Python 文件" aria-label="下载 Python 文件">${ico('download')}</button></div><div class="task-body"><h3 id="task-title"></h3><p id="task-description"></p></div><div class="editor"><div class="filebar">${ico('file-code-2')}<span>practice.py</span><span class="language">Python</span></div><div class="code-wrap"><div class="line-numbers" id="lines" aria-hidden="true"></div><textarea id="code" aria-label="Python 代码" spellcheck="false" maxlength="12000" wrap="off"></textarea></div><div class="editor-status"><span>Python · UTF-8</span><span id="line-count"></span></div></div><div class="editor-controls"><small>代码未执行；提交后由助手查看。</small><button id="ask-code">${ico('message-square')}询问代码</button></div></section><section class="chat"><div class="section-head"><div class="agent"><span class="avatar">${ico('message-square')}</span><div><strong>${esc(s.name)}</strong><small>${s.mode === 'demo' ? '演示模式' : '学习支持'}</small></div></div><button class="icon" id="refresh" title="刷新记录" aria-label="刷新记录">${ico('refresh-cw')}</button></div><div class="messages" id="messages" aria-live="polite" aria-relevant="additions"></div><form class="composer" id="chat-form"><label class="sr-only" for="question">学习问题</label><textarea id="question" maxlength="4000" placeholder="写下你的问题…" aria-label="学习问题"></textarea><div class="compose-actions"><label class="check"><input type="checkbox" id="attach">附上当前代码</label><button class="primary" type="submit" id="send">${ico('send')}发送</button></div><div id="save-state" class="saved">已加载服务器记录</div><p class="error" id="form-error"></p></form></section></main></div>`;
+  root.innerHTML = `${header(`<span class="student-id record-code">${esc(s.id)}</span><button class="icon" id="logout" title="退出学习" aria-label="退出学习">${ico('log-out')}</button>`)}${banner(s.mode)}<div class="work"><aside class="sidebar"><div><h2>学习任务</h2><nav class="task-list" aria-label="学习任务">${TASKS.map(t => `<button data-task="${t.id}">${ico('file-code-2')}<span>${t.title}</span></button>`).join('')}</nav></div><div class="student-meta">学习编号<strong>${esc(s.id)}</strong><p>Python 基础<br>任务示例 · 待教学定稿</p></div></aside><nav class="mobile-tabs" aria-label="工作区"><button id="show-chat" class="active">${ico('message-square')}学习对话</button><button id="show-code">${ico('code-2')}编程练习</button></nav><main class="panels" id="panels" data-tab="chat"><section class="coding"><div class="section-head"><h2>编程练习</h2></div><div class="task-body"><h3 id="task-title"></h3><p id="task-description"></p></div><div class="editor"><div class="filebar">${ico('file-code-2')}<span>practice.py</span><span class="language">Python</span></div><div class="code-wrap"><div class="line-numbers" id="lines" aria-hidden="true"></div><textarea id="code" aria-label="Python 代码" spellcheck="false" maxlength="12000" wrap="off"></textarea></div><div class="editor-status"><span>Python · UTF-8</span><span id="line-count"></span></div></div><div class="editor-controls"><small>代码未执行；提交后由助手查看。</small><button id="ask-code">${ico('message-square')}询问代码</button></div></section><section class="chat"><div class="section-head"><div class="agent"><span class="avatar">${ico('message-square')}</span><div><strong>${esc(s.name)}</strong><small>${s.mode === 'demo' ? '演示模式' : '学习支持'}</small></div></div><button class="icon" id="refresh" title="刷新记录" aria-label="刷新记录">${ico('refresh-cw')}</button></div><div class="messages" id="messages" aria-live="polite" aria-relevant="additions"></div><form class="composer" id="chat-form"><label class="sr-only" for="question">学习问题</label><textarea id="question" maxlength="4000" placeholder="写下你的问题…" aria-label="学习问题"></textarea><div class="compose-actions"><label class="check"><input type="checkbox" id="attach">附上当前代码</label><button class="primary" type="submit" id="send">${ico('send')}发送</button></div><div id="save-state" class="saved">已加载服务器记录</div><p class="error" id="form-error"></p></form></section></main></div>`;
   document.querySelector('.student-meta p').textContent = 'Python 基础 · 8个学习单元';
   const sidebar = document.querySelector('.sidebar');
   const sidebarHeading = sidebar.querySelector('h2');
@@ -125,22 +125,22 @@ function studentView() {
   chatTools.className = 'chat-tools';
   $('refresh').before(chatTools);
   chatTools.append($('refresh'));
-  chatTools.insertAdjacentHTML('beforeend', `<button class="icon" id="export-unit" type="button" title="导出当前单元对话记录" aria-label="导出当前单元对话记录">${ico('download')}</button>`);
+  chatTools.insertAdjacentHTML('beforeend', `<button class="icon" id="export-unit" type="button" title="下载当前单元代码与对话压缩包" aria-label="下载当前单元代码与对话压缩包">${ico('download')}</button>`);
   iconify(); paintEditor(); paintMessages();
   $('logout').onclick = logout;
-  $('export-own').onclick = () => download(`pycompanion-${s.id}.json`, JSON.stringify({ student: s, turns: state.turns, exportedAt: new Date().toISOString() }, null, 2));
-  $('download-code').onclick = () => download('practice.py', currentCode(), 'text/x-python;charset=utf-8');
   $('refresh').onclick = async () => { try { await refresh(); toast('记录已刷新'); } catch (e) { error(e.message); } };
   $('export-unit').onclick = async () => {
+    if (state.exporting) return;
     const task = TASKS.find(t => t.id === state.task);
-    const button = $('export-unit'); button.disabled = true;
+    const code = currentCode();
+    const button = $('export-unit'); state.exporting = true; button.disabled = true;
     try {
       const data = await api('/me');
       if (state.student?.id !== s.id) return;
       state.turns = data.turns; paintMessages();
-      download(`pycompanion-${s.id}-${task.id}-对话记录.md`, unitTranscript({ student: s, task, turns: data.turns }), 'text/markdown;charset=utf-8');
+      download(`pycompanion-${s.id}-${task.id}.zip`, unitArchive({ student: s, task, code, turns: data.turns }), 'application/zip');
     } catch (e) { error(e.message); }
-    finally { if (button.isConnected) button.disabled = !unitTurns(state.turns, state.task).length; }
+    finally { state.exporting = false; if (button.isConnected) button.disabled = false; }
   };
   $('code').oninput = () => { state.codes[state.task] = currentCode(); updateLines(); runner.codeChanged(); };
   $('code').onscroll = () => { $('lines').scrollTop = $('code').scrollTop; };
