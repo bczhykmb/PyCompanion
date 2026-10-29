@@ -18,6 +18,7 @@ export const turns = sqliteTable('turns', {
   status: text('status').notNull(), error: text('error'), mode: text('mode').notNull(),
   created: integer('created').notNull(), completed: integer('completed'),
   promptSnapshot: text('prompt_snapshot'),
+  groupSnapshot: text('group_snapshot'),
 }, t => [uniqueIndex('turn_request').on(t.student, t.requestId), index('turn_student_time').on(t.student, t.created),
   index('turn_student_task_time').on(t.student, t.task, t.created),
   uniqueIndex('turn_pending').on(t.student).where(sql`${t.status} = 'pending'`)]);
@@ -29,4 +30,9 @@ export const promptSettings = sqliteTable('prompt_settings', {
 });
 export const promptRevisions = sqliteTable('prompt_revisions', {
   revision: text('revision').primaryKey(), group: text('group_id').notNull(), prompt: text('prompt').notNull(), created: integer('created').notNull(),
+});
+export const rosterChanges = sqliteTable('roster_changes', {
+  id: text('id').primaryKey(), batchId: text('batch_id').notNull(), student: text('student').notNull(),
+  oldClass: text('old_class').notNull(), newClass: text('new_class').notNull(), oldGroup: text('old_group').notNull(), newGroup: text('new_group').notNull(),
+  oldConfig: text('old_config').notNull(), newConfig: text('new_config').notNull(), created: integer('created').notNull(),
 });

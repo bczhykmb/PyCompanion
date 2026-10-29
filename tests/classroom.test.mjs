@@ -372,6 +372,45 @@ test('teacher prompt edits support future-only, existing accounts, version confl
   } finally { globalThis.fetch = originalFetch; f.DB.close(); }
 });
 
+test('class reassignment preserves IDs and records, switches group rules and revokes old sessions', async () => {
+  const f = fixture(); f.env.MODEL_MODE = 'live'; f.env.MODEL_API_KEY = 'fixture-key';
+  const originalFetch = globalThis.fetch; let messages;
+  globalThis.fetch = async (url, options) => { messages = JSON.parse(options.body).messages; return Response.json({ choices: [{ message: { content: 'reply' } }] }); };
+  try {
+    const spare = await participant(f, 'D');
+    const students = [{ studentNumber: '209900006001', className: '计网2541' }, { studentNumber: '209900006002', className: '计网2542' }];
+    await f.call('/admin/import', { students }, spare.teacher);
+    const login = await f.call('/login', { code: students[0].studentNumber });
+    const before = await f.DB.prepare('SELECT * FROM students WHERE student_number=?').bind(students[0].studentNumber).first();
+    const question = { question: 'old-condition', task: 'intro', requestId: 'before-reassign' };
+    await f.call('/chat', question, login.cookie);
+    const list = [{ studentNumber: students[0].studentNumber, className: '计网2542', expectedClassName: '计网2541', expectedGroup: 'D' }, { studentNumber: students[1].studentNumber, className: '计网2541', expectedClassName: '计网2542', expectedGroup: 'C' }];
+    assert.equal((await f.call('/admin/reassign', { students: list }, login.cookie)).status, 401);
+    assert.equal((await f.call('/admin/reassign', { students: [{ ...list[0], expectedGroup: 'C' }] }, spare.teacher)).status, 409);
+    assert.equal((await f.call('/admin/reassign', { students: [{ ...list[0], className: '计网2532' }] }, spare.teacher)).status, 400);
+    await f.DB.prepare("UPDATE turns SET status='pending' WHERE student=?").bind(before.id).run();
+    assert.equal((await f.call('/admin/reassign', { students: list }, spare.teacher)).status, 409);
+    await f.DB.prepare("UPDATE turns SET status='completed',group_snapshot=NULL WHERE student=?").bind(before.id).run();
+    const changed = await f.call('/admin/reassign', { students: list }, spare.teacher);
+    assert.equal(changed.status, 200); assert.equal(changed.data.updated, 2);
+    const after = await f.DB.prepare('SELECT * FROM students WHERE id=?').bind(before.id).first();
+    assert.equal(after.student_number, before.student_number); assert.equal(after.code_hash, before.code_hash);
+    assert.equal(after.group_id, 'C'); assert.equal(after.class_name, '计网2542');
+    assert.equal(JSON.parse(after.config).prompt, makePrompt('C'));
+    assert.equal(JSON.parse(after.config).mode, 'live');
+    assert.equal((await f.call('/me', undefined, login.cookie)).status, 401);
+    const relogin = await f.call('/login', { code: students[0].studentNumber });
+    const me = (await f.call('/me', undefined, relogin.cookie)).data;
+    assert.equal(me.student.id, before.id); assert.equal(me.turns.length, 1); assert.equal(me.turns[0].group_snapshot, 'D');
+    await f.call('/chat', { ...question, question: 'new-condition', requestId: 'after-reassign' }, relogin.cookie);
+    assert.equal(messages.length, 2, 'Old-condition replies must not enter new-condition model context');
+    assert.equal(messages[0].content, makePrompt('C') + '\n\n' + COMPLETION_PROMPT);
+    const exported = (await f.call('/admin/export', undefined, spare.teacher)).data;
+    assert.equal(exported.rosterChanges.length, 2); assert.equal(exported.turns.length, 2);
+    assert.equal((await f.call('/me', undefined, spare.cookie)).data.student.group, 'D');
+  } finally { globalThis.fetch = originalFetch; f.DB.close(); }
+});
+
 test('invalid values, oversized requests and expired sessions are rejected', async () => {
   const f = fixture(), a = await participant(f);
   assert.equal((await f.call('/chat', { question:'x'.repeat(5000), requestId:'oversized', task:'free' }, a.cookie)).status,400);
