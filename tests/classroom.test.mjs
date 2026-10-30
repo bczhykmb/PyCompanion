@@ -446,6 +446,28 @@ test('class-history reset keeps accounts and other classes while clearing turns,
   } finally { f.DB.close(); }
 });
 
+test('unit-history reset preserves free practice and accounts across groups', async () => {
+  const f = fixture(), a = await participant(f, 'A'), b = await participant(f, 'D');
+  try {
+    for (const [i, account] of [a, b].entries()) {
+      for (const task of ['free', 'intro']) await f.call('/chat', { question: 'test', task, requestId: `clear-unit-${i}-${task}` }, account.cookie);
+    }
+    const accounts = (await f.DB.prepare('SELECT * FROM students ORDER BY id').all()).results;
+    const kept = (await f.DB.prepare("SELECT * FROM turns WHERE task='free' ORDER BY id").all()).results;
+    const ids = (await f.DB.prepare("SELECT id FROM turns WHERE task<>'free' ORDER BY id").all()).results.map(t => t.id);
+    const body = { confirmation: 'KEEP_FREE_DELETE_UNIT_HISTORY', expectedIds: ids };
+    assert.equal((await f.call('/admin/clear-unit-history', body, a.cookie)).status, 401);
+    assert.equal((await f.call('/admin/clear-unit-history', { ...body, expectedIds: [] }, a.teacher)).status, 409);
+    await f.DB.prepare("UPDATE turns SET status='pending' WHERE id=?").bind(ids[0]).run();
+    assert.equal((await f.call('/admin/clear-unit-history', body, a.teacher)).status, 409);
+    await f.DB.prepare("UPDATE turns SET status='completed' WHERE id=?").bind(ids[0]).run();
+    assert.deepEqual((await f.call('/admin/clear-unit-history', body, a.teacher)).data, { clearedTurns: 2, retainedFreeTurns: 2 });
+    assert.deepEqual((await f.DB.prepare('SELECT * FROM turns ORDER BY id').all()).results, kept);
+    assert.deepEqual((await f.DB.prepare('SELECT * FROM students ORDER BY id').all()).results, accounts);
+    assert.equal((await f.call('/me', undefined, a.cookie)).status, 401);
+  } finally { f.DB.close(); }
+});
+
 test('invalid values, oversized requests and expired sessions are rejected', async () => {
   const f = fixture(), a = await participant(f);
   assert.equal((await f.call('/chat', { question:'x'.repeat(5000), requestId:'oversized', task:'free' }, a.cookie)).status,400);
