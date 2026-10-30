@@ -4,7 +4,10 @@ import { CLASS_GROUPS, validateRoster } from '../lib/roster.mjs';
 import { mountRunner } from './runner.mjs';
 import { unitTurns, unitArchive } from './unit-records.mjs';
 import { mountPromptEditor } from './prompt-editor.mjs';
-const icons = { BookOpen, MessageSquare, Code2, Download, LogOut, Send, Copy, RefreshCw, Users, ShieldCheck, Plus, FileCode2, Play, Square, Trash2, PanelLeftClose, PanelLeftOpen, CircleCheck, GraduationCap, Save, RotateCcw };
+import { completionSignals, unitCompletion } from '../lib/completion.mjs';
+import { mountProgress } from './progress.mjs';
+import { X } from 'lucide';
+const icons = { BookOpen, MessageSquare, Code2, Download, LogOut, Send, Copy, RefreshCw, Users, ShieldCheck, Plus, FileCode2, Play, Square, Trash2, PanelLeftClose, PanelLeftOpen, CircleCheck, GraduationCap, Save, RotateCcw, X };
 const root = document.querySelector('#app');
 const adminPage = location.pathname === '/manage';
 const state = { student: null, turns: [], health: {}, task: 'free', busy: false, exporting: false, mobileTab: 'chat', codes: {}, drafts: {}, generated: [], roster: [] };
@@ -41,16 +44,20 @@ async function logout() {
 function currentCode() { return $('code')?.value ?? state.codes[state.task] ?? TASKS.find(t => t.id === state.task).code; }
 function answerContent(turn) {
   const answer = String(turn.answer ?? '');
-  const completed = turn.mode === 'live' && turn.task !== 'free' && /^【基础任务完成】\r?\n本单元基础任务已完成。(?:\r?\n|$)/.test(answer);
-  if (!completed) return esc(answer);
-  const body = answer.replace(/^【基础任务完成】\r?\n本单元基础任务已完成。\s*/, '');
-  return `<div class="completion-signal" role="status">${ico('circle-check')}<span>本单元基础任务已完成</span></div><div class="completion-source">智能体根据已提交材料核对</div>${esc(body)}`;
+  const flags = completionSignals(turn);
+  if (!flags.basic && !flags.optional) return esc(answer);
+  return `${['basic', 'optional'].filter(k => flags[k]).map(k => `<div class="completion-signal ${k}" role="status">${ico('circle-check')}<span>本单元${k === 'basic' ? '基础' : '选做'}任务已完成</span></div>`).join('')}<div class="completion-source">智能体根据已提交材料核对</div>${esc(flags.body)}`;
 }
 function paintMessages() {
   const view = $('messages'); if (!view) return;
   const nearBottom = view.scrollHeight - view.scrollTop - view.clientHeight < 90;
   const turns = unitTurns(state.turns, state.task);
   const task = TASKS.find(t => t.id === state.task);
+  let progressBar = $('unit-progress');
+  if (!progressBar) { progressBar = document.createElement('div'); progressBar.id = 'unit-progress'; progressBar.className = 'unit-progress'; view.before(progressBar); }
+  const progress = unitCompletion(state.turns, state.task, state.student.group);
+  progressBar.hidden = state.task === 'free';
+  progressBar.innerHTML = ['basic', 'optional'].map(k => `<span class="unit-status ${progress[k] ? `confirmed ${k}` : ''}">${progress[k] ? ico('circle-check') : ''}${k === 'basic' ? '必做' : '选做'}：${progress[k] ? '已确认完成' : '未确认'}</span>`).join('');
   if ($('export-unit')) {
     $('export-unit').disabled = state.exporting;
     $('export-unit').title = `下载${task.title}代码与对话压缩包`;
@@ -255,6 +262,7 @@ function adminView() {
   root.innerHTML = `${header(`<a class="teacher-link" href="/">学生入口</a><button class="icon" id="logout" title="退出管理" aria-label="退出管理">${ico('log-out')}</button>`)}${banner()}<main class="manage"><div class="manage-head"><div><h1>实验参与者 <span class="count">${state.roster.length} 人</span></h1><span class="muted">组别固定 · 匿名记录</span></div><div class="top-actions"><button id="copy-link">${ico('copy')}复制学生网址</button><button id="export-all">${ico('download')}导出全部记录</button></div></div><div class="status-line"><span class="badge">${state.health.mode === 'live' ? '真实模型模式' : '演示模式'}</span><span class="badge">服务器集中保存</span><span class="badge">四组教学实验</span></div><form id="create" class="create-form"><div class="field"><label for="group">指定组别</label><select id="group">${Object.entries(GROUPS).map(([id,g]) => `<option value="${id}">${id}组 · ${g.role} · ${g.feedback}</option>`).join('')}</select></div><div class="field"><label for="count">生成人数</label><input type="number" id="count" min="1" max="80" value="1" required></div><button type="submit" class="primary" id="create-button">${ico('plus')}生成个人学习码</button><small>分组方法由研究者确定，系统不会自动随机分组。</small></form><p id="form-error" class="error"></p>${state.generated.length ? `<section class="generated"><h2>新生成的学习码</h2><p>请先下载并保存。个人学习码只显示一次；不要公开发布或混用。</p><button id="download-codes">${ico('download')}下载学习码表</button><div class="table-wrap"><table><thead><tr><th>研究编号</th><th>组别</th><th>个人学习码</th></tr></thead><tbody>${state.generated.map(s => `<tr><td class="record-code">${esc(s.id)}</td><td>${s.group}</td><td class="record-code">${esc(s.code)}</td></tr>`).join('')}</tbody></table></div></section>` : ''}<div class="table-wrap"><table><thead><tr><th>研究编号</th><th>实验条件</th><th>模式</th><th>提问次数</th><th>最近提问</th></tr></thead><tbody>${state.roster.map(s => `<tr><td class="record-code">${esc(s.id)}</td><td>${esc(s.group_id)} · ${esc(GROUPS[s.group_id].role)} · ${esc(GROUPS[s.group_id].feedback)}</td><td>${s.mode === 'demo' ? '演示' : '真实模型'}</td><td>${s.turns}</td><td>${s.lastActive ? esc(date(s.lastActive)) : '尚未提问'}</td></tr>`).join('') || '<tr><td colspan="5" class="empty">还没有参与者。先生成个人学习码。</td></tr>'}</tbody></table></div></main>`;
   mountRosterImport();
   mountPromptEditor({ before: $('import-roster'), api, icon: ico, iconify, toast });
+  mountProgress({ before: document.querySelector('.prompt-editor'), api, icon: ico, iconify });
   iconify(); $('logout').onclick = logout;
   $('copy-link').onclick = () => navigator.clipboard.writeText(location.origin + '/').then(() => toast('学生网址已复制')).catch(() => toast('当前浏览器不允许复制，请复制地址栏中的网站首页地址'));
   $('export-all').onclick = async () => { try { const data = await api('/admin/export'); download('pycompanion-records.json', JSON.stringify(data, null, 2)); } catch (e) { error(e.message); } };
