@@ -283,6 +283,29 @@ test('model conversation history stays inside the current unit and student', asy
   } finally { globalThis.fetch = originalFetch; f.DB.close(); }
 });
 
+test('optional practice retains earlier completion beyond eight turns without crossing student, unit or group', async () => {
+  const f = fixture(); f.env.MODEL_MODE = 'live'; f.env.MODEL_API_KEY = 'fixture-only-key';
+  const originalFetch = globalThis.fetch; let messages;
+  globalThis.fetch = async (url, options) => { messages = JSON.parse(options.body).messages; return Response.json({ choices: [{ message: { content: 'optional-feedback' } }] }); };
+  try {
+    const a = await participant(f, 'D'), b = await participant(f, 'D');
+    const marker = '【基础任务完成】\n本单元基础任务已完成。\n两项检查已通过。';
+    for (let i = 0; i < 10; i++) await f.DB.prepare("INSERT INTO turns(id,student,request_id,question,code,task,answer,status,mode,created,group_snapshot) VALUES(?,?,?,?,?,'variables',?,'completed','live',?,'D')").bind(`optional-${i}`, a.student.id, `optional-${i}`, 'prior-question', '', i === 0 ? marker : 'prior-feedback', i + 1).run();
+    const ask = async (cookie, task, id) => {
+      const result = await f.call('/chat', { question: '我正在做选做，把质量改成输入', code: 'count=int(input())\nmass=float(input())\nprint(count*mass)', task, requestId: id }, cookie);
+      assert.equal(result.status, 200); return messages.at(-1).content;
+    };
+    assert.match(await ask(a.cookie, 'variables', 'optional-current'), /此前已由智能体确认完成/);
+    assert.ok(!messages.slice(1, -1).some(m => m.content.includes(marker)), 'Completion is outside the eight-turn window');
+    assert.match(messages[0].content, /不得仅因代码采用了选做写法/);
+    assert.match(await ask(b.cookie, 'variables', 'optional-other-student'), /未找到本单元历史完成回复/);
+    assert.match(await ask(a.cookie, 'intro', 'optional-other-unit'), /未找到本单元历史完成回复/);
+    await f.DB.prepare("UPDATE turns SET group_snapshot='A' WHERE id='optional-0'").run();
+    assert.match(await ask(a.cookie, 'variables', 'optional-other-group'), /未找到本单元历史完成回复/);
+    assert.match(await ask(a.cookie, 'free', 'optional-free'), /自主练习，不核对单元完成/);
+  } finally { globalThis.fetch = originalFetch; f.DB.close(); }
+});
+
 test('spare codes are teacher-only, can be reissued without losing history, and demo deletion is scoped', async () => {
   const f = fixture();
   try {
