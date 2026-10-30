@@ -491,6 +491,31 @@ test('unit-history reset preserves free practice and accounts across groups', as
   } finally { f.DB.close(); }
 });
 
+test('teacher progress lists all units, separates basic and optional evidence, and protects private data', async () => {
+  const f = fixture(), a = await participant(f, 'D');
+  try {
+    const headers = '【基础任务完成】\n本单元基础任务已完成。\n【选做任务完成】\n本单元选做任务已完成。\n输入12和2.5得30.0，输入0和2.5得0.0。';
+    const result = await f.call('/chat', { question: '请核对', task: 'variables', code: 'print(30.0)', requestId: 'progress-evidence' }, a.cookie);
+    await f.DB.prepare("UPDATE turns SET answer=?,mode='live' WHERE id=?").bind(headers, result.data.turn.id).run();
+    assert.equal((await f.call('/admin/progress', undefined, a.cookie)).status, 401);
+    assert.equal((await f.call(`/admin/progress/detail?student=${a.student.id}&task=variables`, undefined, a.cookie)).status, 401);
+    const data = (await f.call('/admin/progress', undefined, a.teacher)).data;
+    assert.equal(data.tasks.length, 8); assert.equal(data.students[0].units.length, 8);
+    const unit = data.students[0].units.find(u => u.task === 'variables');
+    assert.equal(unit.basic.id, result.data.turn.id); assert.equal(unit.optional.id, result.data.turn.id);
+    assert.equal(data.students[0].units.find(u => u.task === 'intro').basic, null);
+    assert.ok(!JSON.stringify(data).includes('code_hash')); assert.ok(!JSON.stringify(data).includes('spare_code')); assert.ok(!JSON.stringify(data).includes(headers));
+    const detail = (await f.call(`/admin/progress/detail?student=${a.student.id}&task=variables`, undefined, a.teacher)).data;
+    assert.equal(detail.turns[0].answer, headers); assert.equal(detail.turns[0].code, 'print(30.0)');
+    assert.ok(!JSON.stringify(detail).includes('prompt_snapshot'));
+    assert.equal((await f.call(`/admin/progress/detail?student=${a.student.id}&task=free`, undefined, a.teacher)).status, 400);
+    assert.equal((await f.call('/admin/progress/detail?student=missing&task=variables', undefined, a.teacher)).status, 404);
+    await f.DB.prepare("UPDATE turns SET answer='选做练习已完成' WHERE id=?").bind(result.data.turn.id).run();
+    const unmarked = (await f.call('/admin/progress', undefined, a.teacher)).data.students[0].units.find(u => u.task === 'variables');
+    assert.equal(unmarked.optional, null, 'Unstructured historical language must not silently count as verified');
+  } finally { f.DB.close(); }
+});
+
 test('invalid values, oversized requests and expired sessions are rejected', async () => {
   const f = fixture(), a = await participant(f);
   assert.equal((await f.call('/chat', { question:'x'.repeat(5000), requestId:'oversized', task:'free' }, a.cookie)).status,400);

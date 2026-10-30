@@ -38,6 +38,36 @@
 .completion-signal{display:flex;align-items:center;gap:8px;font-weight:600;color:#18553f;white-space:normal}
 .completion-signal svg{width:22px;height:22px;flex:none}
 .completion-source{font-size:12px;color:#52665b;margin:3px 0 10px;white-space:normal}
+.completion-signal.optional{color:#255f96;margin-top:7px}
+.unit-progress{display:flex;flex-wrap:wrap;gap:8px;padding:8px 16px;flex:none;border-bottom:1px solid var(--line);background:#fafcfc;font-size:12px}
+.unit-progress[hidden]{display:none}
+.unit-status{display:inline-flex;align-items:center;gap:4px;color:#626b73;white-space:nowrap;font-size:12px}
+.unit-status svg{width:16px;height:16px;flex:none}
+.unit-status.confirmed{font-weight:600;color:#18674b}
+.unit-status.confirmed.optional{color:#255f96}
+.progress-section{padding:22px 0;border-top:1px solid var(--line);margin-bottom:20px}
+.progress-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
+.progress-heading h2{margin:0;font-size:18px;overflow-wrap:anywhere}
+.progress-heading button{flex:none}
+.progress-filters{display:flex;flex-wrap:wrap;gap:10px;align-items:end;margin-bottom:12px}
+.progress-filters label{margin:0;font-size:12px;flex:1 1 130px;min-width:0}
+.progress-filters select,.progress-filters input[type=search]{margin-top:4px;font-size:13px;padding:7px;min-height:36px}
+.progress-filters .check{flex:0 1 160px;min-height:36px;font-weight:400}
+.progress-note,.progress-summary{font-size:12px;margin-bottom:10px;overflow-wrap:anywhere}
+.progress-table{max-height:540px;position:relative}
+.progress-table table{font-size:12px}
+.progress-table th,.progress-table td{padding:9px 10px}
+.progress-table thead th{position:sticky;top:0;z-index:2;background:#eef2f4}
+.progress-table tbody th{background:white;font-weight:400}
+.progress-table tbody th small{display:block}
+.progress-cell{display:flex;flex-direction:column;align-items:flex-start;gap:3px;border:0;background:transparent;padding:4px;min-width:100px;min-height:48px}
+.progress-dialog{width:min(860px,calc(100% - 28px));max-height:85dvh;overflow:auto;border:1px solid var(--line);border-radius:6px;padding:20px;color:inherit}
+.progress-dialog::backdrop{background:#16212666}
+.progress-detail pre{white-space:pre-wrap;overflow-wrap:anywhere;font-family:inherit;font-size:13px;line-height:1.7;background:#f1f4f6;padding:10px}
+.progress-detail pre.progress-code{font-family:Consolas,monospace;white-space:pre;overflow:auto;max-height:300px}
+.progress-detail details{border-bottom:1px solid var(--line);padding:12px 0}
+.progress-detail summary{cursor:pointer;font-size:13px}
+.progress-detail h3{font-size:13px;margin:14px 0 5px}
 .sidebar-head{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:10px}
 .sidebar .sidebar-head h2{display:block;margin:0;padding:0 9px}
 .sidebar-head .icon{flex:none}
