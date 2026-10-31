@@ -25,7 +25,7 @@ export function mountPromptEditor({ before, api, icon, iconify, toast }) {
       <label for="prompt-text">角色、教学与情绪反馈规则</label><textarea id="prompt-text" maxlength="10000" spellcheck="false">${escape(drafts.get(selected) ?? current.prompt)}</textarea>
       <div class="prompt-actions"><label class="check"><input id="prompt-existing" type="checkbox" checked>同步本组已有账号</label><button id="prompt-reload" class="icon" type="button" title="重新加载已保存规则" aria-label="重新加载已保存规则">${icon('refresh-cw')}</button><button id="prompt-default" type="button" title="载入内置默认规则">${icon('rotate-ccw')}恢复默认</button><button id="prompt-save" class="primary" type="submit">${icon('save')}保存规则</button></div>
       <p class="muted prompt-scope">保存始终适用于本组新建账号；勾选后也同步现有学生和备用码，后续提问生效。演示模式仍使用固定回复。</p><p class="error prompt-error" role="alert"></p>
-      </form><details class="completion-rules"><summary>统一完成核对规则（四组共用）</summary><pre>${escape(data.completionPrompt)}</pre></details>`;
+      </form><details class="completion-rules"><summary>统一引导与完成核对规则（四组共用）</summary><pre>${escape(data.completionPrompt)}</pre></details>`;
     const textarea = body.querySelector('#prompt-text');
     const update = value => { textarea.value = value; drafts.set(selected, value); markDirty(); };
     textarea.oninput = () => { drafts.set(selected, textarea.value); markDirty(); };
