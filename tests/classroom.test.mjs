@@ -24,6 +24,19 @@ test('feedback conditions share teaching rules but require distinct emotional re
   assert.match(makePrompt('A'), /不添加情绪安慰/);
 });
 
+test('all account versions receive the same strict guidance boundary without answer-giving exceptions', () => {
+  assert.match(COMPLETION_PROMPT, /已有账号、备用账号、必做、选做与自主练习/);
+  assert.match(COMPLETION_PROMPT, /不通过多轮逐行代写/);
+  assert.match(COMPLETION_PROMPT, /完整分支结构、完整关键表达式/);
+  assert.match(COMPLETION_PROMPT, /积极反馈只能增加情绪支持，不能增加答案量/);
+  assert.match(COMPLETION_PROMPT, /边界10和20也合格/);
+  assert.ok(!COMMON_TEACHING_PROMPT.includes('明确需要完整示例或已有多次尝试仍卡住时'));
+  for (const group of Object.keys(GROUPS)) {
+    assert.ok(makePrompt(group).includes('不提供当前任务完整答案'));
+    for (const task of TASKS) assert.ok(!demoAnswer(group, '直接给完整答案', '', task.id).includes('```python'));
+  }
+});
+
 test('eight learning units plus independent practice have complete shared materials', () => {
   assert.equal(TASKS.length, 9);
   assert.equal(new Set(TASKS.map(t => t.id)).size, 9);
