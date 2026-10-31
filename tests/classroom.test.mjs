@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { handleApi, hash } from '../lib/api.mjs';
 import { openLocalDatabase } from '../lib/local-db.mjs';
-import { makePrompt, GROUPS, TASKS, demoAnswer, COMMON_TEACHING_PROMPT, FEEDBACK_PROMPTS, ROLE_PROMPTS, PROMPT_VERSION, COMPLETION_PROMPT } from '../lib/experiment.mjs';
+import { makePrompt, GROUPS, TASKS, EXPERIMENT_SESSIONS, demoAnswer, COMMON_TEACHING_PROMPT, FEEDBACK_PROMPTS, ROLE_PROMPTS, PROMPT_VERSION, COMPLETION_PROMPT } from '../lib/experiment.mjs';
 
 test('factorial prompts change exactly one factor between paired conditions', () => {
   assert.equal(makePrompt('A').replace(FEEDBACK_PROMPTS.neutral, ''), makePrompt('B').replace(FEEDBACK_PROMPTS.positive, ''));
@@ -37,10 +37,13 @@ test('all account versions receive the same strict guidance boundary without ans
   }
 });
 
-test('eight learning units plus independent practice have complete shared materials', () => {
-  assert.equal(TASKS.length, 9);
-  assert.equal(new Set(TASKS.map(t => t.id)).size, 9);
-  assert.deepEqual(TASKS.slice(1).map(t => t.unit), [1,2,3,4,5,6,7,8]);
+test('six learning units and independent practice cover three sessions of two units', () => {
+  assert.equal(TASKS.length, 7);
+  assert.equal(new Set(TASKS.map(t => t.id)).size, 7);
+  assert.deepEqual(TASKS.slice(1).map(t => t.unit), [1,2,3,4,5,6]);
+  assert.equal(EXPERIMENT_SESSIONS.length, 3);
+  assert.ok(EXPERIMENT_SESSIONS.every(s => s.tasks.length === 2));
+  assert.deepEqual(EXPERIMENT_SESSIONS.flatMap(s => s.tasks), TASKS.slice(1).map(t => t.id));
   for (const task of TASKS.slice(1)) {
     for (const label of ['学习目标', '基础任务', '进阶练习', '完成检查']) assert.ok(task.text.includes(label));
     assert.ok(task.code.length > 0);
@@ -513,7 +516,7 @@ test('teacher progress lists all units, separates basic and optional evidence, a
     assert.equal((await f.call('/admin/progress', undefined, a.cookie)).status, 401);
     assert.equal((await f.call(`/admin/progress/detail?student=${a.student.id}&task=variables`, undefined, a.cookie)).status, 401);
     const data = (await f.call('/admin/progress', undefined, a.teacher)).data;
-    assert.equal(data.tasks.length, 8); assert.equal(data.students[0].units.length, 8);
+    assert.equal(data.tasks.length, 6); assert.equal(data.students[0].units.length, 6);
     const unit = data.students[0].units.find(u => u.task === 'variables');
     assert.equal(unit.basic.id, result.data.turn.id); assert.equal(unit.optional.id, result.data.turn.id);
     assert.equal(data.students[0].units.find(u => u.task === 'intro').basic, null);
@@ -526,6 +529,18 @@ test('teacher progress lists all units, separates basic and optional evidence, a
     await f.DB.prepare("UPDATE turns SET answer='选做练习已完成' WHERE id=?").bind(result.data.turn.id).run();
     const unmarked = (await f.call('/admin/progress', undefined, a.teacher)).data.students[0].units.find(u => u.task === 'variables');
     assert.equal(unmarked.optional, null, 'Unstructured historical language must not silently count as verified');
+  } finally { f.DB.close(); }
+});
+
+test('retired units reject new questions without deleting historical records or counting them in progress', async () => {
+  const f = fixture(), a = await participant(f);
+  try {
+    await f.DB.prepare("INSERT INTO turns(id,student,request_id,question,code,task,answer,status,mode,created) VALUES('retired-turn',?,'retired-request','old-question','','functions','old-answer','completed','live',1)").bind(a.student.id).run();
+    for (const task of ['functions', 'project']) assert.equal((await f.call('/chat', { question: 'old-unit', task, requestId: `reject-${task}` }, a.cookie)).status, 400);
+    assert.equal((await f.call('/me', undefined, a.cookie)).data.turns[0].answer, 'old-answer');
+    assert.equal((await f.call('/admin/export', undefined, a.teacher)).data.turns[0].id, 'retired-turn');
+    const progress = (await f.call('/admin/progress', undefined, a.teacher)).data;
+    assert.equal(progress.tasks.length, 6); assert.ok(progress.students[0].units.every(u => u.turns === 0));
   } finally { f.DB.close(); }
 });
 
