@@ -544,6 +544,24 @@ test('retired units reject new questions without deleting historical records or 
   } finally { f.DB.close(); }
 });
 
+test('student-only unit reset preserves all spare histories and student free practice', async () => {
+  const f = fixture(), spare = await participant(f, 'D');
+  try {
+    await f.call('/admin/import', { students: [{ studentNumber: '209900009001', className: '计网2541' }] }, spare.teacher);
+    const login = await f.call('/login', { code: '209900009001' });
+    for (const [index, cookie] of [login.cookie, spare.cookie].entries()) for (const task of ['intro', 'free']) await f.call('/chat', { question: 'keep-or-clear', task, requestId: `student-scope-${index}-${task}` }, cookie);
+    const before = (await f.DB.prepare('SELECT * FROM turns ORDER BY id').all()).results;
+    const targets = before.filter(t => t.student !== spare.student.id && t.task !== 'free');
+    const body = { scope: 'students', confirmation: 'KEEP_FREE_DELETE_STUDENT_UNIT_HISTORY', expectedIds: targets.map(t => t.id) };
+    assert.equal((await f.call('/admin/clear-unit-history', { ...body, confirmation: 'KEEP_FREE_DELETE_UNIT_HISTORY' }, spare.teacher)).status, 409);
+    assert.equal((await f.call('/admin/clear-unit-history', body, spare.teacher)).data.clearedTurns, 1);
+    const after = (await f.DB.prepare('SELECT * FROM turns ORDER BY id').all()).results;
+    assert.deepEqual(after, before.filter(t => t.student === spare.student.id || t.task === 'free'));
+    assert.equal((await f.call('/me', undefined, spare.cookie)).status, 200);
+    assert.equal((await f.call('/me', undefined, login.cookie)).status, 401);
+  } finally { f.DB.close(); }
+});
+
 test('invalid values, oversized requests and expired sessions are rejected', async () => {
   const f = fixture(), a = await participant(f);
   assert.equal((await f.call('/chat', { question:'x'.repeat(5000), requestId:'oversized', task:'free' }, a.cookie)).status,400);
