@@ -69,6 +69,8 @@
 .progress-detail summary{cursor:pointer;font-size:13px}
 .progress-detail h3{font-size:13px;margin:14px 0 5px}
 .sidebar-head{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:10px}
+.task-session{display:block;font-size:12px;color:var(--muted);padding:10px 10px 2px}
+@media(max-width:760px){.task-session{display:flex;align-items:center;flex:none;padding:4px 6px;border-left:1px solid var(--line)}}
 .sidebar .sidebar-head h2{display:block;margin:0;padding:0 9px}
 .sidebar-head .icon{flex:none}
 .work.sidebar-collapsed{grid-template-columns:58px minmax(0,1fr)}

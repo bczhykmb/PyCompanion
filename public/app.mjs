@@ -1,5 +1,5 @@
 import { createIcons, BookOpen, MessageSquare, Code2, Download, LogOut, Send, Copy, RefreshCw, Users, ShieldCheck, Plus, FileCode2, Play, Square, Trash2, PanelLeftClose, PanelLeftOpen, CircleCheck, GraduationCap, Save, RotateCcw } from 'lucide';
-import { TASKS, GROUPS } from '../lib/experiment.mjs';
+import { TASKS, GROUPS, EXPERIMENT_SESSIONS } from '../lib/experiment.mjs';
 import { CLASS_GROUPS, validateRoster } from '../lib/roster.mjs';
 import { mountRunner } from './runner.mjs';
 import { unitTurns, unitArchive } from './unit-records.mjs';
@@ -89,7 +89,12 @@ function updateLines() { $('lines').textContent = Array.from({ length: $('code')
 function studentView() {
   const s = state.student;
   root.innerHTML = `${header(`<span class="student-id record-code">${esc(s.id)}</span><button class="icon" id="logout" title="退出学习" aria-label="退出学习">${ico('log-out')}</button>`)}${banner(s.mode)}<div class="work"><aside class="sidebar"><div><h2>学习任务</h2><nav class="task-list" aria-label="学习任务">${TASKS.map(t => `<button data-task="${t.id}">${ico('file-code-2')}<span>${t.title}</span></button>`).join('')}</nav></div><div class="student-meta">学习编号<strong>${esc(s.id)}</strong><p>Python 基础<br>任务示例 · 待教学定稿</p></div></aside><nav class="mobile-tabs" aria-label="工作区"><button id="show-chat" class="active">${ico('message-square')}学习对话</button><button id="show-code">${ico('code-2')}编程练习</button></nav><main class="panels" id="panels" data-tab="chat"><section class="coding"><div class="section-head"><h2>编程练习</h2></div><div class="task-body"><h3 id="task-title"></h3><p id="task-description"></p></div><div class="editor"><div class="filebar">${ico('file-code-2')}<span>practice.py</span><span class="language">Python</span></div><div class="code-wrap"><div class="line-numbers" id="lines" aria-hidden="true"></div><textarea id="code" aria-label="Python 代码" spellcheck="false" maxlength="12000" wrap="off"></textarea></div><div class="editor-status"><span>Python · UTF-8</span><span id="line-count"></span></div></div><div class="editor-controls"><small>代码未执行；提交后由助手查看。</small><button id="ask-code">${ico('message-square')}询问代码</button></div></section><section class="chat"><div class="section-head"><div class="agent"><span class="avatar">${ico('message-square')}</span><div><strong>${esc(s.name)}</strong><small>${s.mode === 'demo' ? '演示模式' : '学习支持'}</small></div></div><button class="icon" id="refresh" title="刷新记录" aria-label="刷新记录">${ico('refresh-cw')}</button></div><div class="messages" id="messages" aria-live="polite" aria-relevant="additions"></div><form class="composer" id="chat-form"><label class="sr-only" for="question">学习问题</label><textarea id="question" maxlength="4000" placeholder="写下你的问题…" aria-label="学习问题"></textarea><div class="compose-actions"><label class="check"><input type="checkbox" id="attach">附上当前代码</label><button class="primary" type="submit" id="send">${ico('send')}发送</button></div><div id="save-state" class="saved">已加载服务器记录</div><p class="error" id="form-error"></p></form></section></main></div>`;
-  document.querySelector('.student-meta p').textContent = 'Python 基础 · 8个学习单元';
+  document.querySelector('.student-meta p').textContent = 'Python 基础 · 6个单元 · 3次实验';
+  for (const session of EXPERIMENT_SESSIONS) {
+    const label = document.createElement('span'); label.className = 'task-session';
+    label.textContent = `第${session.number}次实验`;
+    document.querySelector(`[data-task="${session.tasks[0]}"]`).before(label);
+  }
   const sidebar = document.querySelector('.sidebar');
   const sidebarHeading = sidebar.querySelector('h2');
   const sidebarHead = document.createElement('div');
