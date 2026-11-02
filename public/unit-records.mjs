@@ -4,6 +4,12 @@ export function unitTurns(turns, task) {
   return turns.filter(t => t.task === task);
 }
 
+export function unitArchiveName(identifier, task) {
+  const id = String(identifier).replace(/[^a-zA-Z0-9_-]/g, '_');
+  const label = task.id === 'free' ? '自主练习' : `第${task.unit}单元`;
+  return `${id}-${label}.zip`;
+}
+
 function block(value, language = '') {
   const content = String(value || '');
   const fence = '`'.repeat(Math.max(3, ...[...content.matchAll(/`+/g)].map(m => m[0].length + 1)));

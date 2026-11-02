@@ -1,7 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { unitTurns, unitTranscript, unitArchive } from '../public/unit-records.mjs';
+import { unitTurns, unitTranscript, unitArchive, unitArchiveName } from '../public/unit-records.mjs';
 import { unzipSync, strFromU8 } from 'fflate';
+
+test('ZIP names use student number and Chinese unit labels, with research ID for test accounts', () => {
+  assert.equal(unitArchiveName('209900001234', { id: 'variables', unit: 2 }), '209900001234-第2单元.zip');
+  assert.equal(unitArchiveName('S66510A0A7CE1', { id: 'variables', unit: 2 }), 'S66510A0A7CE1-第2单元.zip');
+  assert.equal(unitArchiveName('209900001234', { id: 'free' }), '209900001234-自主练习.zip');
+});
 
 test('unit transcript excludes other units and retains code, errors and pending state', () => {
   const turns = [
