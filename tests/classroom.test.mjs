@@ -31,6 +31,8 @@ test('all account versions receive the same strict guidance boundary without ans
   assert.match(COMPLETION_PROMPT, /积极反馈只能增加情绪支持，不能增加答案量/);
   assert.match(COMPLETION_PROMPT, /边界10和20也合格/);
   assert.match(COMPLETION_PROMPT, /这两组结果同时覆盖基础/);
+  assert.match(COMPLETION_PROMPT, /二选一，也属于泄露/);
+  assert.match(COMPLETION_PROMPT, /不能要求9和21仍输出“不合格”/);
   assert.ok(!COMMON_TEACHING_PROMPT.includes('明确需要完整示例或已有多次尝试仍卡住时'));
   for (const group of Object.keys(GROUPS)) {
     assert.ok(makePrompt(group).includes('不提供当前任务完整答案'));
