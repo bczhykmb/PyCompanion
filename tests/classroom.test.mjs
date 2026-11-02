@@ -30,6 +30,7 @@ test('all account versions receive the same strict guidance boundary without ans
   assert.match(COMPLETION_PROMPT, /完整分支结构、完整关键表达式/);
   assert.match(COMPLETION_PROMPT, /积极反馈只能增加情绪支持，不能增加答案量/);
   assert.match(COMPLETION_PROMPT, /边界10和20也合格/);
+  assert.match(COMPLETION_PROMPT, /这两组结果同时覆盖基础/);
   assert.ok(!COMMON_TEACHING_PROMPT.includes('明确需要完整示例或已有多次尝试仍卡住时'));
   for (const group of Object.keys(GROUPS)) {
     assert.ok(makePrompt(group).includes('不提供当前任务完整答案'));
@@ -571,6 +572,22 @@ test('chat requires a real question even when code is attached', async () => {
     }
     assert.equal((await f.call('/me', undefined, a.cookie)).data.turns.length, 0);
     assert.equal((await f.call('/chat', { question: '为什么这行输出12？', code: 'print(12)', task: 'free', requestId: 'question-valid-request' }, a.cookie)).status, 200);
+  } finally { f.DB.close(); }
+});
+
+test('test-account sync matches formal group without touching student configs, codes or history', async () => {
+  const f = fixture(), spare = await participant(f, 'D');
+  try {
+    await f.call('/admin/import', { students: [{ studentNumber: '209900009901', className: '计网2541' }] }, spare.teacher);
+    const formal = await f.DB.prepare('SELECT * FROM students WHERE student_number IS NOT NULL').first();
+    await f.DB.prepare('UPDATE students SET config=? WHERE id=?').bind(JSON.stringify({ mode: 'demo', prompt: 'legacy', version: 'old' }), spare.student.id).run();
+    const old = await f.DB.prepare('SELECT * FROM students WHERE id=?').bind(spare.student.id).first();
+    assert.equal((await f.call('/admin/spare-code', { id: formal.id, action: 'sync-experiment', expectedGroup: 'D' }, spare.teacher)).status, 400);
+    assert.equal((await f.call('/admin/spare-code', { id: spare.student.id, action: 'sync-experiment', expectedGroup: 'A' }, spare.teacher)).status, 409);
+    assert.equal((await f.call('/admin/spare-code', { id: spare.student.id, action: 'sync-experiment', expectedGroup: 'D' }, spare.teacher)).data.synced, true);
+    const updated = await f.DB.prepare('SELECT * FROM students WHERE id=?').bind(spare.student.id).first();
+    assert.equal(updated.config, formal.config); assert.equal(updated.code_hash, old.code_hash); assert.equal(updated.spare_code, old.spare_code);
+    assert.deepEqual(await f.DB.prepare('SELECT * FROM students WHERE id=?').bind(formal.id).first(), formal);
   } finally { f.DB.close(); }
 });
 
