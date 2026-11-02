@@ -6,7 +6,7 @@ import { unitTurns, unitArchive } from './unit-records.mjs';
 import { mountPromptEditor } from './prompt-editor.mjs';
 import { completionSignals, unitCompletion } from '../lib/completion.mjs';
 import { mountProgress } from './progress.mjs';
-import { questionError } from '../lib/questions.mjs';
+import { questionError, visibleQuestion } from '../lib/questions.mjs';
 import { mountQuestionPicker } from './question-picker.mjs';
 import { X } from 'lucide';
 const icons = { BookOpen, MessageSquare, Code2, Download, LogOut, Send, Copy, RefreshCw, Users, ShieldCheck, Plus, FileCode2, Play, Square, Trash2, PanelLeftClose, PanelLeftOpen, CircleCheck, GraduationCap, Save, RotateCcw, X };
@@ -69,7 +69,7 @@ function paintMessages() {
     <div class="message-row student-message">
       <span class="message-avatar student-avatar" role="img" aria-label="学生头像">${ico('graduation-cap')}</span>
       <div class="message-content"><div class="message-label"><span>我 · ${esc(TASKS.find(x => x.id === t.task)?.title || '自主练习')}</span><time>${esc(date(t.created))}</time></div>
-      <div class="question"><div class="message-body">${esc(t.question || '请查看我的代码。')}</div>${t.code ? `<details><summary>已提交的 Python 代码</summary><pre>${esc(t.code)}</pre></details>` : ''}</div></div>
+      <div class="question"><div class="message-body">${esc(visibleQuestion(t) || '请查看我的代码。')}</div>${t.code ? `<details><summary>已提交的 Python 代码</summary><pre>${esc(t.code)}</pre></details>` : ''}</div></div>
     </div>
     <div class="message-row agent-message">
       <img class="message-avatar" src="${(GROUPS[t.group_snapshot] || GROUPS[state.student.group]).image}" alt="${esc((GROUPS[t.group_snapshot] || GROUPS[state.student.group]).name)}头像" width="32" height="32">
