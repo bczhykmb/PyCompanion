@@ -6,6 +6,8 @@ import { unitTurns, unitArchive } from './unit-records.mjs';
 import { mountPromptEditor } from './prompt-editor.mjs';
 import { completionSignals, unitCompletion } from '../lib/completion.mjs';
 import { mountProgress } from './progress.mjs';
+import { questionError } from '../lib/questions.mjs';
+import { mountQuestionPicker } from './question-picker.mjs';
 import { X } from 'lucide';
 const icons = { BookOpen, MessageSquare, Code2, Download, LogOut, Send, Copy, RefreshCw, Users, ShieldCheck, Plus, FileCode2, Play, Square, Trash2, PanelLeftClose, PanelLeftOpen, CircleCheck, GraduationCap, Save, RotateCcw, X };
 const root = document.querySelector('#app');
@@ -157,6 +159,14 @@ function studentView() {
   $('code').oninput = () => { state.codes[state.task] = currentCode(); updateLines(); runner.codeChanged(); };
   $('code').onscroll = () => { $('lines').scrollTop = $('code').scrollTop; };
   $('code').onkeydown = e => { if (e.key === 'Tab') { e.preventDefault(); const el = e.target; el.setRangeText('    ', el.selectionStart, el.selectionEnd, 'end'); el.dispatchEvent(new Event('input')); } };
+  const updateSend = () => {
+    const problem = questionError($('question').value);
+    $('send').disabled = state.busy || !!problem;
+    $('send').title = problem || '发送学习问题';
+  };
+  $('question').required = true;
+  $('question').oninput = () => { updateSend(); error(''); };
+  updateSend();
   document.querySelectorAll('[data-task]').forEach(el => el.onclick = () => {
     if (state.busy) return toast('请等待当前回复完成后切换任务。');
     runner.beforeTaskChange(); state.codes[state.task] = currentCode();
@@ -165,22 +175,29 @@ function studentView() {
     $('question').value = state.drafts[state.task]?.question || '';
     $('attach').checked = state.drafts[state.task]?.attach || false;
     $('save-state').textContent = '已加载当前单元记录'; error('');
-    paintEditor(); paintMessages(); $('messages').scrollTop = $('messages').scrollHeight;
+    paintEditor(); paintMessages(); updateSend(); $('messages').scrollTop = $('messages').scrollHeight;
   });
   const tab = name => { state.mobileTab = name; $('panels').dataset.tab = name; $('show-chat').classList.toggle('active', name === 'chat'); $('show-code').classList.toggle('active', name === 'code'); };
   $('show-chat').onclick = () => tab('chat'); $('show-code').onclick = () => tab('code');
+  const openQuestionPicker = mountQuestionPicker({ button: $('ask-code'), icon: ico, iconify, choose: text => {
+    const field = $('question');
+    field.value = field.value.trim() ? field.value.trimEnd() + '\n\n' + text : text;
+    $('attach').checked = true;
+    updateSend(); tab('chat'); field.focus();
+    const start = field.value.indexOf('【请填写】');
+    if (start >= 0) field.setSelectionRange(start, start + '【请填写】'.length);
+  } });
   $('ask-code').onclick = () => {
     if (state.busy) return toast('请等待当前回复完成。');
     if (runner.isRunning()) return toast('请等待运行完成或先停止运行。');
-    $('attach').checked = true;
-    if (!$('question').value.trim()) $('question').value = '请结合当前任务、代码和运行结果，帮我定位问题，并提示下一步。';
-    tab('chat'); $('chat-form').requestSubmit();
+    openQuestionPicker();
   };
   $('chat-form').onsubmit = async e => {
     e.preventDefault(); if (state.busy) return;
     let question = $('question').value.trim();
     const code = $('attach').checked ? currentCode() : '';
-    if (!question && !code.trim()) return error('请先填写问题，或附上当前代码。');
+    const invalidQuestion = questionError(question);
+    if (invalidQuestion) return error(invalidQuestion);
     if (code) {
       const context = runner.questionContext();
       if (question.length + context.length > 4000) return error('问题加运行结果超过长度限制，请缩短问题后发送。');
@@ -193,7 +210,7 @@ function studentView() {
       if (result.turn.status === 'completed') { $('question').value = ''; $('save-state').textContent = `已保存 · ${date(result.turn.completed)}`; }
       else error(result.turn.error || '回复处理中，请稍后刷新。');
     } catch (e) { error(e.message); $('save-state').textContent = '请检查记录后重试，输入已保留'; }
-    finally { state.busy = false; if ($('send')) $('send').disabled = false; }
+    finally { state.busy = false; if ($('send')) updateSend(); }
   };
   clearInterval(polling); polling = setInterval(() => { if (!document.hidden && !state.busy) refresh().catch(() => {}); }, 15000);
 }

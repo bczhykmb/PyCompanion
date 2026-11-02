@@ -562,6 +562,18 @@ test('student-only unit reset preserves all spare histories and student free pra
   } finally { f.DB.close(); }
 });
 
+test('chat requires a real question even when code is attached', async () => {
+  const f = fixture(), a = await participant(f);
+  try {
+    for (const [index, question] of ['', ' \n\t', '我不理解【请填写】', '请结合当前任务、代码和运行结果，帮我定位问题，并提示下一步。'].entries()) {
+      const result = await f.call('/chat', { question, code: 'print(12)', task: 'free', requestId: `question-required-${index}` }, a.cookie);
+      assert.equal(result.status, 400);
+    }
+    assert.equal((await f.call('/me', undefined, a.cookie)).data.turns.length, 0);
+    assert.equal((await f.call('/chat', { question: '为什么这行输出12？', code: 'print(12)', task: 'free', requestId: 'question-valid-request' }, a.cookie)).status, 200);
+  } finally { f.DB.close(); }
+});
+
 test('invalid values, oversized requests and expired sessions are rejected', async () => {
   const f = fixture(), a = await participant(f);
   assert.equal((await f.call('/chat', { question:'x'.repeat(5000), requestId:'oversized', task:'free' }, a.cookie)).status,400);

@@ -63,6 +63,13 @@
 .progress-cell{display:flex;flex-direction:column;align-items:flex-start;gap:3px;border:0;background:transparent;padding:4px;min-width:100px;min-height:48px}
 .progress-dialog{width:min(860px,calc(100% - 28px));max-height:85dvh;overflow:auto;border:1px solid var(--line);border-radius:6px;padding:20px;color:inherit}
 .progress-dialog::backdrop{background:#16212666}
+.question-picker{width:min(380px,calc(100% - 28px));max-height:85dvh;overflow:auto;border:1px solid var(--line);border-radius:6px;padding:18px;color:inherit}
+.question-picker::backdrop{background:#16212666}
+.question-options{display:grid;gap:0}
+.question-options button{justify-content:flex-start;min-height:46px;border:0;border-radius:0;border-bottom:1px solid var(--line);text-align:left}
+.question-options button:last-child{border-bottom:0}
+.coding .editor-controls .question-options button{min-height:44px}
+.question-options span{min-width:0;overflow-wrap:anywhere}
 .progress-detail pre{white-space:pre-wrap;overflow-wrap:anywhere;font-family:inherit;font-size:13px;line-height:1.7;background:#f1f4f6;padding:10px}
 .progress-detail pre.progress-code{font-family:Consolas,monospace;white-space:pre;overflow:auto;max-height:300px}
 .progress-detail details{border-bottom:1px solid var(--line);padding:12px 0}
