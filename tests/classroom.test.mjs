@@ -99,7 +99,7 @@ test('student-number roster fixes class groups and preserves existing accounts o
       const me = await f.call('/me', undefined, login.cookie);
       assert.equal(me.data.student.group, ['D', 'C', 'B', 'A'][i]);
       assert.equal(me.data.student.student_number, undefined);
-      assert.ok(!JSON.stringify(me.data).includes(entry.studentNumber));
+      assert.equal(me.data.downloadId, entry.studentNumber);
     }
     f.env.MODEL_MODE = 'live';
     f.env.MODEL_API_KEY = 'test-only-key';

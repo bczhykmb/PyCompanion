@@ -2,7 +2,7 @@ import { createIcons, BookOpen, MessageSquare, Code2, Download, LogOut, Send, Co
 import { TASKS, GROUPS, EXPERIMENT_SESSIONS } from '../lib/experiment.mjs';
 import { CLASS_GROUPS, validateRoster } from '../lib/roster.mjs';
 import { mountRunner } from './runner.mjs';
-import { unitTurns, unitArchive } from './unit-records.mjs';
+import { unitTurns, unitArchive, unitArchiveName } from './unit-records.mjs';
 import { mountPromptEditor } from './prompt-editor.mjs';
 import { completionSignals, unitCompletion } from '../lib/completion.mjs';
 import { mountProgress } from './progress.mjs';
@@ -152,7 +152,7 @@ function studentView() {
       const data = await api('/me');
       if (state.student?.id !== s.id) return;
       state.turns = data.turns; paintMessages();
-      download(`pycompanion-${s.id}-${task.id}.zip`, unitArchive({ student: s, task, code, turns: data.turns }), 'application/zip');
+      download(unitArchiveName(data.downloadId || s.id, task), unitArchive({ student: s, task, code, turns: data.turns }), 'application/zip');
     } catch (e) { error(e.message); }
     finally { state.exporting = false; if (button.isConnected) button.disabled = false; }
   };
