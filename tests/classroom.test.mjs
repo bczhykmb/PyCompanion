@@ -308,7 +308,7 @@ test('optional practice retains earlier completion beyond eight turns without cr
   globalThis.fetch = async (url, options) => { messages = JSON.parse(options.body).messages; return Response.json({ choices: [{ message: { content: 'optional-feedback' } }] }); };
   try {
     const a = await participant(f, 'D'), b = await participant(f, 'D');
-    const marker = '【基础任务完成】\n本单元基础任务已完成。\n两项检查已通过。';
+    const marker = '两项运行结果已核对。\n\n【基础任务完成】\n本单元基础任务已完成。\n两项检查已通过。';
     for (let i = 0; i < 10; i++) await f.DB.prepare("INSERT INTO turns(id,student,request_id,question,code,task,answer,status,mode,created,group_snapshot) VALUES(?,?,?,?,?,'variables',?,'completed','live',?,'D')").bind(`optional-${i}`, a.student.id, `optional-${i}`, 'prior-question', '', i === 0 ? marker : 'prior-feedback', i + 1).run();
     const ask = async (cookie, task, id) => {
       const result = await f.call('/chat', { question: '我正在做选做，把质量改成输入', code: 'count=int(input())\nmass=float(input())\nprint(count*mass)', task, requestId: id }, cookie);
@@ -513,7 +513,7 @@ test('unit-history reset preserves free practice and accounts across groups', as
 test('teacher progress lists all units, separates basic and optional evidence, and protects private data', async () => {
   const f = fixture(), a = await participant(f, 'D');
   try {
-    const headers = '【基础任务完成】\n本单元基础任务已完成。\n【选做任务完成】\n本单元选做任务已完成。\n输入12和2.5得30.0，输入0和2.5得0.0。';
+    const headers = '两项运行结果已核对。\n\n【基础任务完成】\n本单元基础任务已完成。\n基础计算正确。\n\n【选做任务完成】\n本单元选做任务已完成。\n输入12和2.5得30.0，输入0和2.5得0.0。';
     const result = await f.call('/chat', { question: '请核对', task: 'variables', code: 'print(30.0)', requestId: 'progress-evidence' }, a.cookie);
     await f.DB.prepare("UPDATE turns SET answer=?,mode='live' WHERE id=?").bind(headers, result.data.turn.id).run();
     assert.equal((await f.call('/admin/progress', undefined, a.cookie)).status, 401);
