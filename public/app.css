@@ -77,6 +77,10 @@
 .progress-detail h3{font-size:13px;margin:14px 0 5px}
 .sidebar-head{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:10px}
 .identity-fields{display:grid;gap:10px;margin-bottom:12px}
+.identity-check{margin-bottom:12px}
+.identity-check>summary{cursor:pointer;font-size:13px;font-weight:600;color:#374651;padding:4px 0}
+.identity-check[open]>.identity-fields{margin-top:8px}
+.identity-check:not([open])>.identity-fields{display:none}
 .identity-field span,.research-label{display:block;color:var(--muted);font-size:12px}
 .sidebar .identity-field strong{font-size:16px;color:#20272b;overflow-wrap:anywhere}
 .student-name{display:block;font-family:"Microsoft YaHei",sans-serif;color:#20272b;margin-top:3px}
