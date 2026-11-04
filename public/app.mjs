@@ -34,7 +34,7 @@ function banner(mode = state.health.mode) { return mode !== 'live' ? '<div class
 function header(actions = '') { return `<header class="topbar"><a class="brand" href="/"><img src="/favicon.svg" alt="PyCompanion"><strong>PyCompanion</strong><span>Python 学习实验室</span></a><div class="top-actions">${actions}</div></header>`; }
 function entry(message = '') {
   runner?.dispose(); runner = null;
-  clearInterval(polling); state.student = null;
+  clearInterval(polling); state.student = null; state.identity = null;
   root.innerHTML = `<div class="login-page">${header(adminPage ? '<a class="teacher-link" href="/">学生入口</a>' : '<a class="teacher-link" href="/manage">教师管理</a>')}${banner()}<main class="entry"><img class="logo" src="/favicon.svg" alt=""><h1>${adminPage ? '教师管理' : '进入学习实验室'}</h1><p class="muted">${adminPage ? '请输入教师管理密码。' : '请输入自己的完整学号。'}</p><form id="login"><label for="credential">${adminPage ? '管理密码' : '学号'}</label><input id="credential" name="credential" type="${adminPage ? 'password' : 'text'}" autocomplete="${adminPage ? 'current-password' : 'off'}" maxlength="${adminPage ? 200 : 80}" placeholder="${adminPage ? '教师管理密码' : '完整学号'}" required ${adminPage ? '' : 'spellcheck="false"'}><p class="error" id="form-error">${esc(message)}</p><button class="primary" id="login-button" type="submit">${ico(adminPage ? 'shield-check' : 'book-open')}${adminPage ? '登录管理' : '进入学习'}</button></form><p class="consent muted">${adminPage ? '学生名单仅限教师管理，请妥善保管。' : '学号用于匹配个人学习记录；请勿在对话和代码中填写姓名、学号或其他个人信息。演示体验不替代正式研究的知情同意。'}</p><div class="foot muted">${adminPage ? 'PyCompanion · 四组教学实验' : 'Python 基础 · 学习与编程练习'}</div></main></div>`;
   iconify();
   $('login').onsubmit = async e => { e.preventDefault(); const button = $('login-button'); button.disabled = true; error(''); try { await api('/login', adminPage ? { kind: 'admin', password: $('credential').value } : { code: $('credential').value }); await load(); } catch (e) { error(e.message); } finally { if (button.isConnected) button.disabled = false; } };
@@ -88,10 +88,14 @@ function paintEditor() {
   document.querySelectorAll('[data-task]').forEach(el => { el.classList.toggle('active', el.dataset.task === state.task); el.setAttribute('aria-current', el.dataset.task === state.task ? 'true' : 'false'); });
 }
 function updateLines() { $('lines').textContent = Array.from({ length: $('code').value.split('\n').length }, (_, i) => i + 1).join('\n'); $('line-count').textContent = `${$('code').value.split('\n').length} 行`; }
+function paintIdentity() {
+  const meta = document.querySelector('.student-meta'); if (!meta) return;
+  meta.innerHTML = `${state.identity ? `<div class="identity-fields"><div class="identity-field"><span>学号</span><strong>${esc(state.identity.studentNumber)}</strong></div><div class="identity-field"><span>姓名</span><strong>${esc(state.identity.name || '待补充')}</strong></div></div>` : '<div class="identity-fields"><strong>备用测试账号</strong></div>'}<span class="research-label">研究编号</span><strong class="record-code">${esc(state.student.id)}</strong><p>Python 基础 · 6个单元 · 3次实验</p>`;
+}
 function studentView() {
   const s = state.student;
   root.innerHTML = `${header(`<span class="student-id record-code">${esc(s.id)}</span><button class="icon" id="logout" title="退出学习" aria-label="退出学习">${ico('log-out')}</button>`)}${banner(s.mode)}<div class="work"><aside class="sidebar"><div><h2>学习任务</h2><nav class="task-list" aria-label="学习任务">${TASKS.map(t => `<button data-task="${t.id}">${ico('file-code-2')}<span>${t.title}</span></button>`).join('')}</nav></div><div class="student-meta">学习编号<strong>${esc(s.id)}</strong><p>Python 基础<br>任务示例 · 待教学定稿</p></div></aside><nav class="mobile-tabs" aria-label="工作区"><button id="show-chat" class="active">${ico('message-square')}学习对话</button><button id="show-code">${ico('code-2')}编程练习</button></nav><main class="panels" id="panels" data-tab="chat"><section class="coding"><div class="section-head"><h2>编程练习</h2></div><div class="task-body"><h3 id="task-title"></h3><p id="task-description"></p></div><div class="editor"><div class="filebar">${ico('file-code-2')}<span>practice.py</span><span class="language">Python</span></div><div class="code-wrap"><div class="line-numbers" id="lines" aria-hidden="true"></div><textarea id="code" aria-label="Python 代码" spellcheck="false" maxlength="12000" wrap="off"></textarea></div><div class="editor-status"><span>Python · UTF-8</span><span id="line-count"></span></div></div><div class="editor-controls"><small>代码未执行；提交后由助手查看。</small><button id="ask-code">${ico('message-square')}询问代码</button></div></section><section class="chat"><div class="section-head"><div class="agent"><span class="avatar">${ico('message-square')}</span><div><strong>${esc(s.name)}</strong><small>${s.mode === 'demo' ? '演示模式' : '学习支持'}</small></div></div><button class="icon" id="refresh" title="刷新记录" aria-label="刷新记录">${ico('refresh-cw')}</button></div><div class="messages" id="messages" aria-live="polite" aria-relevant="additions"></div><form class="composer" id="chat-form"><label class="sr-only" for="question">学习问题</label><textarea id="question" maxlength="4000" placeholder="写下你的问题…" aria-label="学习问题"></textarea><div class="compose-actions"><label class="check"><input type="checkbox" id="attach">附上当前代码</label><button class="primary" type="submit" id="send">${ico('send')}发送</button></div><div id="save-state" class="saved">已加载服务器记录</div><p class="error" id="form-error"></p></form></section></main></div>`;
-  document.querySelector('.student-meta p').textContent = 'Python 基础 · 6个单元 · 3次实验';
+  paintIdentity();
   for (const session of EXPERIMENT_SESSIONS) {
     const label = document.createElement('span'); label.className = 'task-session';
     label.textContent = `第${session.number}次实验`;
@@ -214,7 +218,7 @@ function studentView() {
   };
   clearInterval(polling); polling = setInterval(() => { if (!document.hidden && !state.busy) refresh().catch(() => {}); }, 15000);
 }
-async function refresh() { const data = await api('/me'); state.student = data.student; state.turns = data.turns; paintMessages(); }
+async function refresh() { const data = await api('/me'); state.student = data.student; state.identity = data.identity; state.turns = data.turns; paintMessages(); paintIdentity(); }
 function csvField(s) { const value = String(s ?? ''); return '"' + (/^[=+@\-\t\r]/.test(value) ? "'" : '') + value.replace(/"/g, '""') + '"'; }
 function exportCodes() { download('pycompanion-learning-codes.csv', '\uFEFF' + [['研究编号','组别','个人学习码','模式'], ...state.generated.map(s => [s.id,s.group,s.code,s.mode])].map(r => r.map(csvField).join(',')).join('\r\n'), 'text/csv;charset=utf-8'); }
 function mountRosterImport() {
@@ -245,6 +249,11 @@ function mountRosterImport() {
     };
   }
   table.innerHTML = `<thead><tr><th>学号 / 备用学习码</th><th>班级</th><th>研究编号</th><th>实验条件</th><th>模式</th><th>提问次数</th><th>最近提问</th></tr></thead><tbody>${state.roster.map(s => `<tr><td class="record-code">${s.student_number ? esc(s.student_number) : s.spare_code ? `<strong>${esc(s.spare_code)}</strong>` : `<button type="button" data-reissue="${esc(s.id)}" title="更新登录码以显示；保留历史记录">生成可显示的备用码</button>`}</td><td>${esc(s.class_name || '—')}</td><td class="record-code">${esc(s.id)}</td><td>${esc(s.group_id)} · ${esc(GROUPS[s.group_id].role)} · ${esc(GROUPS[s.group_id].feedback)}</td><td>${s.mode === 'demo' ? '演示' : '真实模型'}</td><td>${s.turns}</td><td>${s.lastActive ? esc(date(s.lastActive)) : '尚未提问'}</td></tr>`).join('') || '<tr><td colspan="7" class="empty">尚未导入学生名单。</td></tr>'}</tbody>`;
+  table.querySelector('thead th').textContent = '学号 / 姓名 / 备用学习码';
+  table.querySelectorAll('tbody tr').forEach((row, i) => {
+    const student = state.roster[i];
+    if (student?.student_number) row.cells[0].insertAdjacentHTML('beforeend', `<small class="student-name">${esc(student.student_name || '姓名待补充')}</small>`);
+  });
   table.querySelectorAll('[data-reissue]').forEach(button => button.onclick = async () => {
     if (!confirm('将更新此账号的备用学习码，旧码失效，历史记录保留。是否继续？')) return;
     button.disabled = true; error('');
@@ -299,7 +308,7 @@ function adminView() {
 async function load() {
   try {
     if (adminPage) { state.roster = (await api('/admin/students')).students; adminView(); }
-    else { const data = await api('/me'); state.student = data.student; state.turns = data.turns; studentView(); }
+    else { const data = await api('/me'); state.student = data.student; state.identity = data.identity; state.turns = data.turns; studentView(); }
   } catch (e) { entry(e.status === 401 ? '' : e.message); }
 }
 window.addEventListener('beforeunload', e => { if (state.busy || $('question')?.value.trim() || (state.student && Object.keys(state.codes).length) || document.querySelector('[data-prompt-dirty="true"]')) { e.preventDefault(); e.returnValue = ''; } });

@@ -76,6 +76,11 @@
 .progress-detail summary{cursor:pointer;font-size:13px}
 .progress-detail h3{font-size:13px;margin:14px 0 5px}
 .sidebar-head{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:10px}
+.identity-fields{display:grid;gap:10px;margin-bottom:12px}
+.identity-field span,.research-label{display:block;color:var(--muted);font-size:12px}
+.sidebar .identity-field strong{font-size:16px;color:#20272b;overflow-wrap:anywhere}
+.student-name{display:block;font-family:"Microsoft YaHei",sans-serif;color:#20272b;margin-top:3px}
+@media(max-width:760px){.work:not(.sidebar-collapsed) .student-meta{display:block;margin-top:6px;padding:6px 4px 0}.student-meta .identity-fields{display:flex;flex-wrap:wrap;gap:6px 14px;margin:0}.student-meta .identity-field{display:flex;align-items:baseline;gap:5px}.sidebar .identity-field strong{font-size:13px}.student-meta>.research-label,.student-meta>.record-code,.student-meta>p{display:none}}
 .task-session{display:block;font-size:12px;color:var(--muted);padding:10px 10px 2px}
 @media(max-width:760px){.task-session{display:flex;align-items:center;flex:none;padding:4px 6px;border-left:1px solid var(--line)}}
 .sidebar .sidebar-head h2{display:block;margin:0;padding:0 9px}

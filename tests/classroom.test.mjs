@@ -593,6 +593,29 @@ test('test-account sync matches formal group without touching student configs, c
   } finally { f.DB.close(); }
 });
 
+test('names are teacher-managed, self-visible and excluded from model requests and research export', async () => {
+  const f = fixture(); f.env.MODEL_MODE = 'live'; f.env.MODEL_API_KEY = 'fixture-key';
+  const originalFetch = globalThis.fetch; let payload;
+  globalThis.fetch = async (url, options) => { payload = options.body; return Response.json({ choices: [{ message: { content: '请先说清变量保存什么数据。' } }] }); };
+  try {
+    const spare = await participant(f, 'D'), number = '209900008801';
+    await f.call('/admin/import', { students: [{ studentNumber: number, className: '计网2541' }] }, spare.teacher);
+    const login = await f.call('/login', { code: number });
+    const entries = [{ studentNumber: number, name: '姓名测试甲' }];
+    assert.equal((await f.call('/admin/names', { students: entries }, login.cookie)).status, 401);
+    assert.equal((await f.call('/admin/names', { students: [...entries, { studentNumber: '209900008899', name: '未知学生' }] }, spare.teacher)).status, 409);
+    assert.equal((await f.call('/me', undefined, login.cookie)).data.identity.name, null);
+    assert.equal((await f.call('/admin/names', { students: entries }, spare.teacher)).data.updated, 1);
+    assert.deepEqual((await f.call('/me', undefined, login.cookie)).data.identity, { studentNumber: number, name: '姓名测试甲' });
+    assert.equal((await f.call('/me', undefined, spare.cookie)).data.identity, null);
+    const teacherList = (await f.call('/admin/students', undefined, spare.teacher)).data.students;
+    assert.equal(teacherList.find(s => s.student_number === number).student_name, '姓名测试甲');
+    await f.call('/chat', { question: '变量有什么作用？', task: 'free', requestId: 'private-name-test' }, login.cookie);
+    assert.ok(!payload.includes('姓名测试甲')); assert.ok(!payload.includes(number));
+    assert.ok(!JSON.stringify((await f.call('/admin/export', undefined, spare.teacher)).data).includes('姓名测试甲'));
+  } finally { globalThis.fetch = originalFetch; f.DB.close(); }
+});
+
 test('invalid values, oversized requests and expired sessions are rejected', async () => {
   const f = fixture(), a = await participant(f);
   assert.equal((await f.call('/chat', { question:'x'.repeat(5000), requestId:'oversized', task:'free' }, a.cookie)).status,400);
