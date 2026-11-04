@@ -90,7 +90,8 @@ function paintEditor() {
 function updateLines() { $('lines').textContent = Array.from({ length: $('code').value.split('\n').length }, (_, i) => i + 1).join('\n'); $('line-count').textContent = `${$('code').value.split('\n').length} 行`; }
 function paintIdentity() {
   const meta = document.querySelector('.student-meta'); if (!meta) return;
-  meta.innerHTML = `${state.identity ? `<div class="identity-fields"><div class="identity-field"><span>学号</span><strong>${esc(state.identity.studentNumber)}</strong></div><div class="identity-field"><span>姓名</span><strong>${esc(state.identity.name || '待补充')}</strong></div></div>` : '<div class="identity-fields"><strong>备用测试账号</strong></div>'}<span class="research-label">研究编号</span><strong class="record-code">${esc(state.student.id)}</strong><p>Python 基础 · 6个单元 · 3次实验</p>`;
+  const expanded = meta.querySelector('.identity-check')?.open || false;
+  meta.innerHTML = `${state.identity ? `<details class="identity-check"${expanded ? ' open' : ''}><summary>身份核验</summary><div class="identity-fields"><div class="identity-field"><span>学号</span><strong>${esc(state.identity.studentNumber)}</strong></div><div class="identity-field"><span>姓名</span><strong>${esc(state.identity.name || '待补充')}</strong></div></div></details>` : '<div class="identity-fields"><strong>备用测试账号</strong></div>'}<span class="research-label">研究编号</span><strong class="record-code">${esc(state.student.id)}</strong><p>Python 基础 · 6个单元 · 3次实验</p>`;
 }
 function studentView() {
   const s = state.student;
