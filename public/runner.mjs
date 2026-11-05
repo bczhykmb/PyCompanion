@@ -6,6 +6,7 @@ export function mountRunner({ container, getCode, getTask, icon, iconify }) {
   panel.setAttribute('aria-label', 'Python 运行区');
   panel.innerHTML = `<div class="run-toolbar"><div class="run-buttons"><button id="run-python" class="primary" title="运行 Python">${icon('play')}运行</button><button id="stop-python" class="icon" title="停止运行" aria-label="停止运行" disabled>${icon('square')}</button></div><span id="run-status" role="status">尚未运行</span><button id="clear-output" class="icon" title="清空输出" aria-label="清空输出">${icon('trash-2')}</button></div><details class="stdin-panel"><summary>程序输入 · input()</summary><label for="python-stdin">输入数据（每次 input() 一行）</label><textarea id="python-stdin" rows="3" maxlength="8000" placeholder="12&#10;2.5" spellcheck="false"></textarea></details><pre id="python-output" tabindex="0" aria-label="运行输出"></pre>`;
   container.before(panel);
+  panel.querySelector('.stdin-panel').open = true;
   const find = id => panel.querySelector('#' + id);
   const run = find('run-python'), stop = find('stop-python'), stdin = find('python-stdin'), output = find('python-output'), status = find('run-status');
   const end = () => {
